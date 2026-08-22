@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>朋友會集資帳本</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+  :root{
+    --paper:#F5F0E4;
+    --paper-line:#DDD2BA;
+    --card:#FFFDF8;
+    --ink:#262320;
+    --ink-soft:#6B6455;
+    --brand:#2E4A52;
+    --brand-strong:#1F3438;
+    --brand-soft:#E4ECEA;
+    --stamp:#B23A2E;
+    --stamp-soft:#F6DEDA;
+    --danger:#A23B2E;
+    --danger-soft:#F3E2DD;
+    --shadow: 0 1px 2px rgba(38,35,32,.06), 0 4px 12px rgba(38,35,32,.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#1E1B17;
+      --paper-line:#3A352C;
+      --card:#26221D;
+      --ink:#EDE6D6;
+      --ink-soft:#A79E8C;
+      --brand:#8FB6B6;
+      --brand-strong:#B7D4D4;
+      --brand-soft:#223333;
+      --stamp:#E2695C;
+      --stamp-soft:#3A2320;
+      --danger:#E2695C;
+      --danger-soft:#3A2320;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#1E1B17;
+    --paper-line:#3A352C;
+    --card:#26221D;
+    --ink:#EDE6D6;
+    --ink-soft:#A79E8C;
+    --brand:#8FB6B6;
+    --brand-strong:#B7D4D4;
+    --brand-soft:#223333;
+    --stamp:#E2695C;
+    --stamp-soft:#3A2320;
+    --danger:#E2695C;
+    --danger-soft:#3A2320;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.35);
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+    font-size:17px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3{ font-family:"Noto Serif TC","Noto Sans TC",serif; font-weight:700; text-wrap:balance; margin:0; }
+  button, input, select{ font:inherit; color:inherit; }
+  ol,ul{ margin:0; padding:0; list-style:none; }
+  input{ accent-color:var(--brand); }
+  input[type="checkbox"]{ width:22px; height:22px; }
+
+  :focus-visible{ outline:3px solid var(--brand); outline-offset:2px; border-radius:4px; }
+
+  .page{ max-width:720px; margin:0 auto; padding:20px 16px 96px; display:flex; flex-direction:column; gap:20px; }
+
+  .topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding-top:4px; }
+  .topbar h1{ font-size:24px; }
+
+  .link-btn{
+    background:none; border:none; color:var(--brand); font-weight:700;
+    padding:10px 4px; cursor:pointer; font-size:16px;
+  }
+  .link-btn:hover{ text-decoration:underline; }
+
+  .banner{ padding:12px 14px; border-radius:10px; font-size:15px; }
+  .banner-info{ background:var(--brand-soft); color:var(--brand-strong); }
+  .banner-warn{ background:var(--stamp-soft); color:var(--stamp); }
+
+  .btn{
+    border:none; border-radius:12px; padding:14px 18px; font-weight:700; font-size:16px;
+    cursor:pointer; min-height:48px; box-shadow:var(--shadow);
+  }
+  .btn-primary{ background:var(--brand); color:#fff; }
+  :root[data-theme="dark"] .btn-primary{ color:#0F1B1D; }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .btn-primary{ color:#0F1B1D; } }
+  .btn-ghost{ background:var(--card); color:var(--ink); border:1px solid var(--paper-line); box-shadow:none; }
+  .btn-danger{ background:var(--danger-soft); color:var(--danger); box-shadow:none; }
+  .btn-block{ width:100%; }
+  .btn-lg{ font-size:18px; padding:18px; }
+  @media (prefers-reduced-motion:no-preference){ .btn{ transition:transform .1s ease; } .btn:active{ transform:scale(.98); } }
+
+  .stub-list{ display:flex; flex-direction:column; gap:14px; }
+  .stub{
+    background:var(--card); border:1px solid var(--paper-line); border-radius:16px;
+    padding:16px; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:10px;
+  }
+  .stub-row{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+  .stub-round{ font-size:13px; color:var(--ink-soft); letter-spacing:.03em; }
+  .stub-org{ font-size:19px; margin-top:2px; }
+  .stub-total{ font-family:"Noto Sans TC"; font-weight:700; font-variant-numeric:tabular-nums; color:var(--stamp); font-size:19px; white-space:nowrap; }
+  .stub-meta{ display:flex; gap:16px; font-size:14px; color:var(--ink-soft); flex-wrap:wrap; }
+  .stub-actions{ display:flex; gap:8px; flex-wrap:wrap; padding-top:4px; border-top:1px dashed var(--paper-line); margin-top:2px; }
+  .stub-actions .btn{ padding:10px 14px; font-size:14px; min-height:40px; }
+
+  .empty{ color:var(--ink-soft); font-size:15px; padding:8px 2px; }
+
+  .card{
+    background:var(--card); border:1px solid var(--paper-line); border-radius:16px;
+    padding:18px; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:12px;
+  }
+  .card h2{ font-size:18px; }
+
+  .field{ display:flex; flex-direction:column; gap:6px; }
+  .field span{ font-size:14px; color:var(--ink-soft); font-weight:500; }
+  .field input, .field select{
+    border:1px solid var(--paper-line); border-radius:10px; padding:12px 12px;
+    background:var(--paper); color:var(--ink); font-size:16px; min-height:44px;
+  }
+
+  .donor-list{ display:flex; flex-direction:column; gap:8px; }
+  .donor-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:10px 12px; border:1px solid var(--paper-line); border-radius:10px; background:var(--paper);
+  }
+  .donor-row-off{ opacity:.5; }
+  .check-label{ display:flex; align-items:center; gap:12px; font-size:16px; cursor:pointer; }
+
+  .icon-btn{
+    background:none; border:none; color:var(--ink-soft); font-size:18px; cursor:pointer;
+    width:36px; height:36px; border-radius:8px;
+  }
+  .icon-btn:hover{ background:var(--danger-soft); color:var(--danger); }
+
+  .inline-form{ display:flex; gap:8px; flex-wrap:wrap; }
+  .inline-form input{
+    flex:1 1 160px; border:1px solid var(--paper-line); border-radius:10px; padding:12px;
+    background:var(--paper); color:var(--ink); font-size:16px; min-height:44px;
+  }
+  .inline-form-org{ align-items:stretch; }
+
+  .chip-row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding-top:4px; }
+  .chip-label{ font-size:13px; color:var(--ink-soft); }
+  .chip{
+    border:1px dashed var(--brand); background:var(--brand-soft); color:var(--brand-strong);
+    border-radius:999px; padding:8px 14px; font-size:14px; cursor:pointer;
+  }
+
+  .item-list{ display:flex; flex-direction:column; gap:10px; }
+  .item-row{
+    display:grid; grid-template-columns: 1fr 90px 70px auto auto; gap:8px; align-items:center;
+    padding:8px; border:1px solid var(--paper-line); border-radius:10px; background:var(--paper);
+  }
+  .item-row input{
+    border:1px solid var(--paper-line); border-radius:8px; padding:10px; background:var(--card);
+    color:var(--ink); font-size:15px; min-height:40px; width:100%;
+  }
+  .item-subtotal{ font-variant-numeric:tabular-nums; font-weight:700; white-space:nowrap; font-size:14px; text-align:right; }
+
+  .totalbar{
+    position:sticky; bottom:76px; display:flex; justify-content:space-between; align-items:center;
+    background:var(--stamp-soft); color:var(--stamp); border-radius:14px; padding:14px 18px;
+    font-weight:700; font-size:18px;
+  }
+  .totalbar strong{ font-variant-numeric:tabular-nums; font-size:22px; }
+
+  .action-bar{
+    position:sticky; bottom:0; display:flex; gap:10px; background:var(--paper);
+    padding:12px 0 4px; border-top:1px solid var(--paper-line);
+  }
+  .action-bar .btn{ flex:1; }
+
+  .lib-list{ display:flex; flex-direction:column; gap:8px; }
+  .lib-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:10px 12px; border:1px solid var(--paper-line); border-radius:10px; background:var(--paper);
+  }
+  .lib-org-name{ font-weight:700; }
+  .lib-org-detail{ font-size:13px; color:var(--ink-soft); }
+
+  .group-card{
+    border:1px solid var(--paper-line); border-radius:12px; padding:12px;
+    display:flex; flex-direction:column; gap:10px; background:var(--paper);
+  }
+  .group-card-head{ display:flex; justify-content:space-between; align-items:center; }
+  .group-card-head strong{ font-size:16px; }
+
+  .notice-input{
+    width:100%; border:1px solid var(--paper-line); border-radius:10px; padding:12px;
+    background:var(--paper); color:var(--ink); font-size:15px; resize:vertical; font-family:inherit;
+  }
+  .ledger-notice{
+    white-space:pre-line; font-size:13px; color:var(--ink-soft); border-top:1px dashed var(--paper-line);
+    padding-top:10px; margin-top:2px;
+  }
+
+  /* preview / print ledger sheet */
+  .ledger-sheet{
+    background:var(--card); border:1px solid var(--paper-line); border-radius:16px;
+    box-shadow:var(--shadow); padding:24px; display:flex; flex-direction:column; gap:18px;
+  }
+  .ledger-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:16px; }
+  .ledger-round{ font-size:13px; color:var(--ink-soft); letter-spacing:.04em; }
+  .ledger-title{ font-family:"Noto Serif TC"; font-size:24px; font-weight:700; margin-top:2px; }
+  .stamp{
+    flex-shrink:0; width:64px; height:64px; border-radius:50%; border:3px solid var(--stamp);
+    color:var(--stamp); display:flex; align-items:center; justify-content:center;
+    font-family:"Noto Serif TC"; font-weight:700; font-size:16px; transform:rotate(-8deg);
+  }
+  .ledger-body{ display:grid; grid-template-columns:1fr; gap:20px; }
+  @media (min-width:620px){
+    .ledger-body{ grid-template-columns: 1fr 1.4fr; }
+    .ledger-donors{ border-right:1px dashed var(--paper-line); padding-right:20px; }
+  }
+  .ledger-col h3{ font-size:15px; color:var(--ink-soft); margin-bottom:8px; font-weight:700; }
+  .pv-donor-list{ display:flex; flex-direction:column; gap:6px; }
+  .pv-donor-list li{ display:flex; gap:10px; font-size:15px; align-items:baseline; }
+  .pv-num{ color:var(--ink-soft); font-variant-numeric:tabular-nums; width:22px; flex-shrink:0; }
+  .org-name{ font-size:18px; font-weight:700; margin:0 0 2px; }
+  .ledger-org p{ margin:2px 0; font-size:14px; color:var(--ink-soft); }
+  .pv-table{ width:100%; border-collapse:collapse; margin-top:10px; font-size:14px; }
+  .pv-table th, .pv-table td{ padding:6px 4px; border-bottom:1px solid var(--paper-line); text-align:left; }
+  .pv-table .num{ text-align:right; font-variant-numeric:tabular-nums; }
+  .pv-total{
+    display:flex; justify-content:space-between; align-items:center; margin-top:10px;
+    padding-top:10px; border-top:2px solid var(--stamp); font-weight:700; color:var(--stamp);
+  }
+  .pv-total strong{ font-size:20px; font-variant-numeric:tabular-nums; }
+
+  .no-print.action-bar{ position:static; border-top:none; }
+
+  .print-frame{ }
+
+  @page{ size: A4; margin: 12mm; }
+  @media print{
+    body{ background:#fff !important; color:#111 !important; }
+    .no-print{ display:none !important; }
+    .page{ max-width:none; padding:0; }
+    .print-frame{ overflow:hidden; }
+    .ledger-sheet{ box-shadow:none; border:1px solid #ccc; transform-origin:top left; }
+    .stamp{ border-color:#B23A2E; color:#B23A2E; }
+    .pv-total{ color:#B23A2E; border-top-color:#B23A2E; }
+  }
+</style>
+</head>
+<body>
+
+
+<div id="app"></div>
+
+<script>
+(function(){
+  var STORAGE_KEY = 'friendsFundLedger_v1_cache';
+  var DEFAULT_NOTICE = '捐贈負責人：賴怡如0929099018\n地址：臺南市後壁區菁豐里39之16號\n*請把物資及名單寫好，收據寄回。\n*物資收據寫成一張即可。';
+  // 部署好 Google Apps Script 網頁應用程式後,把取得的網址貼在這裡(例如：https://script.google.com/macros/s/xxxx/exec)
+  var BACKEND_URL = '';
+  var offlineMode = false;
+  var syncError = false;
+  var persistTimer = null;
+
+  var state = { donorLibrary: [], donorGroups: [], orgLibrary: [], sheets: [] };
+  var ui = { view: 'home', sheetId: null };
+
+  function uid(prefix){
+    return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8);
+  }
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+    });
+  }
+  function fmtMoney(n){
+    n = Number(n) || 0;
+    return 'NT$ ' + n.toLocaleString('zh-Hant-TW');
+  }
+  function fmtDate(iso){
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return d.getFullYear() + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getDate()).padStart(2,'0');
+  }
+  function sheetTotal(sheet){
+    return sheet.items.reduce(function(sum, it){ return sum + (Number(it.unitPrice)||0) * (Number(it.qty)||0); }, 0);
+  }
+  function sheetDonorCount(sheet){
+    var checked = sheet.donors.filter(function(d){ return d.checked; }).length;
+    return checked + ' / ' + sheet.donors.length;
+  }
+  function getSheet(id){ return state.sheets.find(function(s){ return s.id === id; }); }
+
+  function saveCache(){
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){}
+  }
+
+  async function loadRemote(){
+    if (!BACKEND_URL) return null;
+    try {
+      var res = await fetch(BACKEND_URL, { method: 'GET', cache: 'no-store' });
+      if (!res.ok) { syncError = true; return null; }
+      var json = await res.json();
+      syncError = false;
+      return (json && typeof json === 'object') ? json : {};
+    } catch(e){
+      syncError = true;
+      return null;
+    }
+  }
+  function flushPersist(){
+    if (!BACKEND_URL) return Promise.resolve();
+    return fetch(BACKEND_URL, { method: 'POST', body: JSON.stringify(state) })
+      .then(function(res){
+        syncError = !res.ok;
+        if (syncError) render();
+      })
+      .catch(function(){
+        syncError = true;
+        render();
+      });
+  }
+  function schedulePersist(){
+    saveCache();
+    if (!BACKEND_URL) return;
+    clearTimeout(persistTimer);
+    persistTimer = setTimeout(flushPersist, 900);
+  }
+  function persistNow(){
+    saveCache();
+    clearTimeout(persistTimer);
+    return flushPersist();
+  }
+
+  function upsertOrgLibrary(org){
+    if (!org || !org.name || !org.name.trim()) return;
+    var name = org.name.trim();
+    var existing = state.orgLibrary.find(function(o){ return o.name === name; });
+    if (existing) {
+      existing.phone = org.phone; existing.address = org.address; existing.capacity = org.capacity;
+    } else {
+      state.orgLibrary.push({ id: uid('lib'), name: name, phone: org.phone||'', address: org.address||'', capacity: org.capacity||'' });
+    }
+  }
+
+  async function init(){
+    try {
+      var cached = localStorage.getItem(STORAGE_KEY);
+      if (cached) state = JSON.parse(cached);
+    } catch(e){}
+
+    if (!BACKEND_URL) {
+      offlineMode = true;
+    } else {
+      var remote = await loadRemote();
+      if (remote !== null) state = remote;
+    }
+
+    if (!state.donorLibrary) state.donorLibrary = [];
+    if (!state.donorGroups) state.donorGroups = [];
+    if (!state.orgLibrary) state.orgLibrary = [];
+    if (!state.sheets) state.sheets = [];
+    if (state.notice === undefined) state.notice = DEFAULT_NOTICE;
+
+    render();
+  }
+
+  function render(){
+    var app = document.getElementById('app');
+    var html = '';
+    if (ui.view === 'manage') html = renderManage();
+    else if (ui.view === 'editor') html = renderEditor();
+    else if (ui.view === 'preview') html = renderPreview();
+    else html = renderHome();
+    app.innerHTML = html;
+  }
+
+  function renderHome(){
+    var sheets = state.sheets.slice().sort(function(a,b){ return new Date(b.createdAt) - new Date(a.createdAt); });
+    var cards = sheets.map(function(s){
+      return '<article class="stub">' +
+        '<div class="stub-row">' +
+          '<div>' +
+            '<div class="stub-round">' + esc(s.roundLabel || '未命名集資') + '</div>' +
+            '<h3 class="stub-org">' + esc(s.org.name || '(尚未填寫受贈單位)') + '</h3>' +
+          '</div>' +
+          '<div class="stub-total">' + fmtMoney(sheetTotal(s)) + '</div>' +
+        '</div>' +
+        '<div class="stub-meta">' +
+          '<span>建立於 ' + fmtDate(s.createdAt) + '</span>' +
+          '<span>捐款人 ' + sheetDonorCount(s) + '</span>' +
+        '</div>' +
+        '<div class="stub-actions">' +
+          '<button class="btn btn-primary" onclick="App.openSheet(\'' + s.id + '\')">開啟</button>' +
+          '<button class="btn btn-ghost" onclick="App.duplicateSheet(\'' + s.id + '\')">複製建立新表格</button>' +
+          '<button class="btn btn-danger" onclick="App.deleteSheet(\'' + s.id + '\')">刪除</button>' +
+        '</div>' +
+      '</article>';
+    }).join('');
+
+    return '<div class="page">' +
+      '<header class="topbar"><h1>朋友會集資帳本</h1>' +
+      '<button class="link-btn" onclick="App.goManage()">管理常用名單</button></header>' +
+      (offlineMode ? '<div class="banner banner-warn">尚未設定雲端同步,目前資料只存在這台裝置。</div>' : '') +
+      (!offlineMode && syncError ? '<div class="banner banner-warn">目前連不上雲端,已先存在這台裝置,恢復連線後會自動再同步。</div>' : '') +
+      '<button class="btn btn-primary btn-block btn-lg" onclick="App.newSheet()">＋ 新增空白表格</button>' +
+      '<div class="stub-list">' + (cards || '<p class="empty">目前還沒有任何表格,點上面按鈕開始新增。</p>') + '</div>' +
+    '</div>';
+  }
+
+  function renderManage(){
+    var donorRows = state.donorLibrary.map(function(d){
+      return '<li class="lib-row"><span>' + esc(d.name) + '</span>' +
+        '<button class="icon-btn" onclick="App.removeLibDonor(\'' + d.id + '\')" aria-label="刪除">✕</button></li>';
+    }).join('') || '<li class="empty">尚未建立任何常用捐款人</li>';
+
+    var orgRows = state.orgLibrary.map(function(o){
+      return '<li class="lib-row"><div><div class="lib-org-name">' + esc(o.name) + '</div>' +
+        '<div class="lib-org-detail">' + esc(o.phone||'') + ' ' + esc(o.address||'') + '</div></div>' +
+        '<button class="icon-btn" onclick="App.removeLibOrg(\'' + o.id + '\')" aria-label="刪除">✕</button></li>';
+    }).join('') || '<li class="empty">尚未建立任何常用受贈單位</li>';
+
+    var groupCards = state.donorGroups.map(function(g){
+      var memberRows = g.members.map(function(m){
+        return '<li class="lib-row"><span>' + esc(m.name) + '</span>' +
+          '<button class="icon-btn" onclick="App.removeGroupMember(\'' + g.id + '\',\'' + m.id + '\')" aria-label="移除">✕</button></li>';
+      }).join('') || '<li class="empty">尚未加入任何人</li>';
+
+      var memberNames = g.members.map(function(m){ return m.name; });
+      var groupChips = state.donorLibrary.filter(function(ld){ return memberNames.indexOf(ld.name) === -1; })
+        .map(function(ld){
+          return '<button type="button" class="chip" onclick="App.addGroupMemberFromLibrary(\'' + g.id + '\',\'' + ld.id + '\')">＋ ' + esc(ld.name) + '</button>';
+        }).join('');
+
+      return '<div class="group-card">' +
+        '<div class="group-card-head"><strong>' + esc(g.name) + '</strong>' +
+          '<button class="icon-btn" onclick="App.removeGroup(\'' + g.id + '\')" aria-label="刪除這組名單">✕</button></div>' +
+        '<ul class="lib-list">' + memberRows + '</ul>' +
+        '<form class="inline-form" onsubmit="App.addGroupMember(event,\'' + g.id + '\')">' +
+          '<input name="name" placeholder="輸入姓名 / 家庭 / 團體" required>' +
+          '<button class="btn btn-primary" type="submit">加入</button>' +
+        '</form>' +
+        (groupChips ? '<div class="chip-row"><span class="chip-label">常用捐款人:</span>' + groupChips + '</div>' : '') +
+      '</div>';
+    }).join('') || '<p class="empty">尚未建立任何固定名單</p>';
+
+    return '<div class="page">' +
+      '<header class="topbar"><button class="link-btn" onclick="App.goHome()">← 返回列表</button>' +
+      '<h1>管理常用名單</h1><span></span></header>' +
+      '<section class="card"><h2>固定聯絡資訊</h2>' +
+        '<p class="empty" style="padding:0">這段文字會固定顯示在每一張表格的列印畫面上。</p>' +
+        '<textarea class="notice-input" rows="4" oninput="App.updateNotice(this.value)">' + esc(state.notice) + '</textarea>' +
+      '</section>' +
+      '<section class="card"><h2>固定名單組合</h2>' +
+        '<p class="empty" style="padding:0">先建立好一組固定的人(例如某一家人、某個朋友圈),之後不管這次捐給哪個受贈單位,都能在表格裡一鍵套用這組名單。</p>' +
+        groupCards +
+        '<form class="inline-form" onsubmit="App.addGroup(event)">' +
+          '<input name="name" placeholder="輸入這組名單的名稱,例如：陳家全家" required>' +
+          '<button class="btn btn-primary" type="submit">新增名單</button>' +
+        '</form>' +
+      '</section>' +
+      '<section class="card"><h2>常用捐款人</h2><ul class="lib-list">' + donorRows + '</ul>' +
+        '<form class="inline-form" onsubmit="App.addLibDonor(event)">' +
+          '<input name="name" placeholder="輸入姓名 / 家庭 / 團體名稱" required>' +
+          '<button class="btn btn-primary" type="submit">加入</button>' +
+        '</form>' +
+      '</section>' +
+      '<section class="card"><h2>常用受贈單位</h2><ul class="lib-list">' + orgRows + '</ul>' +
+        '<form class="inline-form inline-form-org" onsubmit="App.addLibOrg(event)">' +
+          '<input name="name" placeholder="單位名稱" required>' +
+          '<input name="phone" placeholder="電話">' +
+          '<input name="address" placeholder="地址">' +
+          '<input name="capacity" placeholder="收容對象 / 備註">' +
+          '<button class="btn btn-primary" type="submit">加入</button>' +
+        '</form>' +
+      '</section>' +
+    '</div>';
+  }
+
+  function renderEditor(){
+    var sheet = getSheet(ui.sheetId);
+    if (!sheet) { ui.view = 'home'; return renderHome(); }
+
+    var donorRows = sheet.donors.map(function(d){
+      return '<li class="donor-row' + (d.checked ? '' : ' donor-row-off') + '">' +
+        '<label class="check-label"><input type="checkbox" ' + (d.checked ? 'checked' : '') +
+          ' onchange="App.toggleDonor(\'' + sheet.id + '\',\'' + d.id + '\')"><span>' + esc(d.name) + '</span></label>' +
+        '<button class="icon-btn" onclick="App.removeDonorFromSheet(\'' + sheet.id + '\',\'' + d.id + '\')" aria-label="移除">✕</button>' +
+      '</li>';
+    }).join('') || '<li class="empty">尚未加入任何捐款人</li>';
+
+    var existingNames = sheet.donors.map(function(d){ return d.name; });
+    var libChips = state.donorLibrary.filter(function(ld){ return existingNames.indexOf(ld.name) === -1; })
+      .map(function(ld){
+        return '<button type="button" class="chip" onclick="App.addDonorFromLibrary(\'' + sheet.id + '\',\'' + ld.id + '\')">＋ ' + esc(ld.name) + '</button>';
+      }).join('');
+
+    var orgOptions = state.orgLibrary.map(function(o){
+      return '<option value="' + o.id + '">' + esc(o.name) + '</option>';
+    }).join('');
+
+    var groupOptions = state.donorGroups.map(function(g){
+      return '<option value="' + g.id + '">' + esc(g.name) + '（' + g.members.length + ' 人）</option>';
+    }).join('');
+
+    var itemRows = sheet.items.map(function(it){
+      var sub = (Number(it.unitPrice)||0) * (Number(it.qty)||0);
+      return '<div class="item-row" id="row-' + it.id + '">' +
+        '<input class="item-name" placeholder="物資名稱" value="' + esc(it.name) + '" oninput="App.updateItem(\'' + sheet.id + '\',\'' + it.id + '\',\'name\',this.value)">' +
+        '<input class="item-num" type="number" inputmode="decimal" min="0" step="1" placeholder="單價" value="' + it.unitPrice + '" oninput="App.updateItem(\'' + sheet.id + '\',\'' + it.id + '\',\'unitPrice\',this.value)">' +
+        '<input class="item-num" type="number" inputmode="numeric" min="0" step="1" placeholder="數量" value="' + it.qty + '" oninput="App.updateItem(\'' + sheet.id + '\',\'' + it.id + '\',\'qty\',this.value)">' +
+        '<span class="item-subtotal" id="subtotal-' + it.id + '">' + fmtMoney(sub) + '</span>' +
+        '<button class="icon-btn" onclick="App.removeItem(\'' + sheet.id + '\',\'' + it.id + '\')" aria-label="刪除">✕</button>' +
+      '</div>';
+    }).join('') || '<p class="empty">尚未新增物資,點下面按鈕開始新增。</p>';
+
+    return '<div class="page page-editor">' +
+      '<header class="topbar"><button class="link-btn" onclick="App.goHome()">← 返回列表</button><h1>編輯表格</h1><span></span></header>' +
+      (offlineMode ? '<div class="banner banner-warn">尚未設定雲端同步,目前資料只存在這台裝置。</div>' : '') +
+      (!offlineMode && syncError ? '<div class="banner banner-warn">目前連不上雲端,已先存在這台裝置,恢復連線後會自動再同步。</div>' : '') +
+      '<section class="card"><label class="field"><span>本次集資名稱</span>' +
+        '<input value="' + esc(sheet.roundLabel) + '" placeholder="例如：115年6月份 第36次集資" oninput="App.updateSheetField(\'' + sheet.id + '\',\'roundLabel\',this.value)"></label></section>' +
+      '<section class="card"><h2>受贈單位</h2>' +
+        (orgOptions ? '<label class="field"><span>從常用單位選擇</span><select onchange="App.pickOrg(\'' + sheet.id + '\',this.value)"><option value="">— 請選擇 —</option>' + orgOptions + '</select></label>' : '') +
+        '<label class="field"><span>單位名稱</span><input value="' + esc(sheet.org.name) + '" oninput="App.updateOrgField(\'' + sheet.id + '\',\'name\',this.value)"></label>' +
+        '<label class="field"><span>電話</span><input value="' + esc(sheet.org.phone) + '" oninput="App.updateOrgField(\'' + sheet.id + '\',\'phone\',this.value)"></label>' +
+        '<label class="field"><span>地址</span><input value="' + esc(sheet.org.address) + '" oninput="App.updateOrgField(\'' + sheet.id + '\',\'address\',this.value)"></label>' +
+        '<label class="field"><span>收容對象 / 備註</span><input value="' + esc(sheet.org.capacity) + '" oninput="App.updateOrgField(\'' + sheet.id + '\',\'capacity\',this.value)"></label>' +
+      '</section>' +
+      '<section class="card"><h2>捐款人名單</h2>' +
+        (groupOptions ? '<label class="field"><span>套用固定名單</span><select onchange="App.applyDonorGroup(\'' + sheet.id + '\',this.value)"><option value="">— 請選擇 —</option>' + groupOptions + '</select></label>' : '') +
+        '<ul class="donor-list">' + donorRows + '</ul>' +
+        '<form class="inline-form" onsubmit="App.addDonorNew(event,\'' + sheet.id + '\')">' +
+          '<input name="name" placeholder="輸入新的姓名 / 家庭 / 團體" required>' +
+          '<button class="btn btn-primary" type="submit">加入</button>' +
+        '</form>' +
+        (libChips ? '<div class="chip-row"><span class="chip-label">常用名單:</span>' + libChips + '</div>' : '') +
+      '</section>' +
+      '<section class="card"><h2>捐贈物資</h2><div class="item-list">' + itemRows + '</div>' +
+        '<button class="btn btn-ghost btn-block" onclick="App.addItem(\'' + sheet.id + '\')">＋ 新增物資項目</button>' +
+      '</section>' +
+      '<div class="totalbar"><span>總計</span><strong id="grand-total">' + fmtMoney(sheetTotal(sheet)) + '</strong></div>' +
+      '<div class="action-bar">' +
+        '<button class="btn btn-ghost" onclick="App.persistAndNotify()">儲存</button>' +
+        '<button class="btn btn-primary" onclick="App.goPreview(\'' + sheet.id + '\')">預覽 / 列印</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function renderPreview(){
+    var sheet = getSheet(ui.sheetId);
+    if (!sheet) { ui.view = 'home'; return renderHome(); }
+    var donors = sheet.donors.filter(function(d){ return d.checked; });
+    var donorItems = donors.map(function(d,i){
+      return '<li><span class="pv-num">' + (i+1) + '</span>' + esc(d.name) + '</li>';
+    }).join('') || '<li class="empty">（無）</li>';
+
+    var itemRows = sheet.items.map(function(it,i){
+      var sub = (Number(it.unitPrice)||0) * (Number(it.qty)||0);
+      return '<tr><td>' + (i+1) + '</td><td>' + esc(it.name) + '</td>' +
+        '<td class="num">' + fmtMoney(it.unitPrice) + '</td><td class="num">' + (Number(it.qty)||0) + '</td>' +
+        '<td class="num">' + fmtMoney(sub) + '</td></tr>';
+    }).join('');
+
+    var stampText = sheet.org.name ? sheet.org.name.slice(0,2) : '收據';
+
+    return '<div class="page page-preview">' +
+      '<div class="no-print action-bar">' +
+        '<button class="btn btn-ghost" onclick="App.goEditor(\'' + sheet.id + '\')">← 返回編輯</button>' +
+        '<button class="btn btn-primary" onclick="window.print()">列印 / 存成 PDF</button>' +
+      '</div>' +
+      '<div class="print-frame" id="printFrame">' +
+      '<div class="ledger-sheet" id="ledgerSheet">' +
+        '<div class="ledger-head"><div><div class="ledger-round">' + esc(sheet.roundLabel) + '</div>' +
+          '<div class="ledger-title">捐贈明細</div></div>' +
+          '<div class="stamp">' + esc(stampText) + '</div></div>' +
+        '<div class="ledger-notice">' + esc(state.notice) + '</div>' +
+        '<div class="ledger-body">' +
+          '<div class="ledger-col ledger-donors"><h3>捐款人</h3><ol class="pv-donor-list">' + donorItems + '</ol></div>' +
+          '<div class="ledger-col ledger-org"><h3>受贈單位</h3>' +
+            '<p class="org-name">' + esc(sheet.org.name) + '</p>' +
+            '<p>' + esc(sheet.org.phone) + '</p>' +
+            '<p>' + esc(sheet.org.address) + '</p>' +
+            '<p>' + esc(sheet.org.capacity) + '</p>' +
+            '<h3 style="margin-top:14px">物資明細</h3>' +
+            '<table class="pv-table"><thead><tr><th></th><th>品項</th><th class="num">單價</th><th class="num">數量</th><th class="num">小計</th></tr></thead>' +
+            '<tbody>' + itemRows + '</tbody></table>' +
+            '<div class="pv-total"><span>總計</span><strong>' + fmtMoney(sheetTotal(sheet)) + '</strong></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  var App = {
+    goHome: function(){
+      if (ui.view === 'editor' && ui.sheetId) {
+        var s = getSheet(ui.sheetId);
+        if (s) upsertOrgLibrary(s.org);
+      }
+      ui.view = 'home';
+      persistNow();
+      render();
+    },
+    goManage: function(){ ui.view = 'manage'; render(); },
+    openSheet: function(id){ ui.view = 'editor'; ui.sheetId = id; render(); },
+    goEditor: function(id){ ui.view = 'editor'; ui.sheetId = id; render(); },
+    goPreview: function(id){
+      var s = getSheet(id);
+      if (s) upsertOrgLibrary(s.org);
+      persistNow();
+      ui.view = 'preview'; ui.sheetId = id;
+      render();
+    },
+    newSheet: function(){
+      var sheet = {
+        id: uid('sheet'), createdAt: new Date().toISOString(),
+        roundLabel: '', org: { name:'', phone:'', address:'', capacity:'' },
+        donors: [],
+        items: [{ id: uid('item'), name:'', unitPrice:0, qty:1 }]
+      };
+      state.sheets.push(sheet);
+      schedulePersist();
+      ui.view = 'editor'; ui.sheetId = sheet.id;
+      render();
+    },
+    duplicateSheet: function(id){
+      var src = getSheet(id);
+      if (!src) return;
+      var copy = {
+        id: uid('sheet'), createdAt: new Date().toISOString(),
+        roundLabel: src.roundLabel,
+        org: { name: src.org.name, phone: src.org.phone, address: src.org.address, capacity: src.org.capacity },
+        donors: src.donors.map(function(d){ return { id: uid('donor'), name: d.name, checked: true }; }),
+        items: [{ id: uid('item'), name:'', unitPrice:0, qty:1 }]
+      };
+      state.sheets.push(copy);
+      schedulePersist();
+      ui.view = 'editor'; ui.sheetId = copy.id;
+      render();
+    },
+    deleteSheet: function(id){
+      if (!confirm('確定要刪除這張表格嗎？刪除後無法復原。')) return;
+      state.sheets = state.sheets.filter(function(s){ return s.id !== id; });
+      schedulePersist();
+      render();
+    },
+    updateSheetField: function(sheetId, field, value){
+      var s = getSheet(sheetId); if (!s) return;
+      s[field] = value;
+      schedulePersist();
+    },
+    updateOrgField: function(sheetId, field, value){
+      var s = getSheet(sheetId); if (!s) return;
+      s.org[field] = value;
+      schedulePersist();
+    },
+    pickOrg: function(sheetId, orgId){
+      var s = getSheet(sheetId); if (!s) return;
+      var o = state.orgLibrary.find(function(x){ return x.id === orgId; });
+      if (o) s.org = { name:o.name, phone:o.phone, address:o.address, capacity:o.capacity };
+      schedulePersist();
+      render();
+    },
+    applyDonorGroup: function(sheetId, groupId){
+      if (!groupId) return;
+      var s = getSheet(sheetId); if (!s) return;
+      var g = state.donorGroups.find(function(x){ return x.id === groupId; });
+      if (!g) return;
+      if (s.donors.length > 0 && !confirm('套用「' + g.name + '」的名單會覆蓋目前表格上的捐款人名單,確定要套用嗎？')) return;
+      s.donors = g.members.map(function(m){ return { id: uid('donor'), name: m.name, checked:true }; });
+      schedulePersist();
+      render();
+    },
+    toggleDonor: function(sheetId, donorId){
+      var s = getSheet(sheetId); if (!s) return;
+      var d = s.donors.find(function(x){ return x.id === donorId; });
+      if (d) d.checked = !d.checked;
+      schedulePersist();
+      render();
+    },
+    removeDonorFromSheet: function(sheetId, donorId){
+      var s = getSheet(sheetId); if (!s) return;
+      s.donors = s.donors.filter(function(d){ return d.id !== donorId; });
+      schedulePersist();
+      render();
+    },
+    addDonorNew: function(evt, sheetId){
+      evt.preventDefault();
+      var name = evt.target.elements.name.value.trim();
+      if (!name) return;
+      var s = getSheet(sheetId); if (!s) return;
+      s.donors.push({ id: uid('donor'), name: name, checked:true });
+      if (!state.donorLibrary.some(function(ld){ return ld.name === name; })) {
+        state.donorLibrary.push({ id: uid('lib'), name: name });
+      }
+      schedulePersist();
+      render();
+    },
+    addDonorFromLibrary: function(sheetId, libId){
+      var s = getSheet(sheetId); if (!s) return;
+      var lib = state.donorLibrary.find(function(l){ return l.id === libId; });
+      if (!lib) return;
+      s.donors.push({ id: uid('donor'), name: lib.name, checked:true });
+      schedulePersist();
+      render();
+    },
+    addItem: function(sheetId){
+      var s = getSheet(sheetId); if (!s) return;
+      s.items.push({ id: uid('item'), name:'', unitPrice:0, qty:1 });
+      schedulePersist();
+      render();
+    },
+    removeItem: function(sheetId, itemId){
+      var s = getSheet(sheetId); if (!s) return;
+      s.items = s.items.filter(function(it){ return it.id !== itemId; });
+      schedulePersist();
+      render();
+    },
+    updateItem: function(sheetId, itemId, field, value){
+      var s = getSheet(sheetId); if (!s) return;
+      var it = s.items.find(function(x){ return x.id === itemId; });
+      if (!it) return;
+      it[field] = (field === 'unitPrice' || field === 'qty') ? (Number(value) || 0) : value;
+      var sub = (Number(it.unitPrice)||0) * (Number(it.qty)||0);
+      var subEl = document.getElementById('subtotal-' + itemId);
+      if (subEl) subEl.textContent = fmtMoney(sub);
+      var totalEl = document.getElementById('grand-total');
+      if (totalEl) totalEl.textContent = fmtMoney(sheetTotal(s));
+      schedulePersist();
+    },
+    removeLibDonor: function(id){
+      state.donorLibrary = state.donorLibrary.filter(function(d){ return d.id !== id; });
+      schedulePersist();
+      render();
+    },
+    addLibDonor: function(evt){
+      evt.preventDefault();
+      var name = evt.target.elements.name.value.trim();
+      if (!name) return;
+      state.donorLibrary.push({ id: uid('lib'), name: name });
+      schedulePersist();
+      evt.target.reset();
+      render();
+    },
+    updateNotice: function(value){
+      state.notice = value;
+      schedulePersist();
+    },
+    addGroup: function(evt){
+      evt.preventDefault();
+      var name = evt.target.elements.name.value.trim();
+      if (!name) return;
+      state.donorGroups.push({ id: uid('group'), name: name, members: [] });
+      schedulePersist();
+      evt.target.reset();
+      render();
+    },
+    removeGroup: function(id){
+      if (!confirm('確定要刪除這組固定名單嗎？刪除後無法復原。')) return;
+      state.donorGroups = state.donorGroups.filter(function(g){ return g.id !== id; });
+      schedulePersist();
+      render();
+    },
+    addGroupMember: function(evt, groupId){
+      evt.preventDefault();
+      var name = evt.target.elements.name.value.trim();
+      if (!name) return;
+      var g = state.donorGroups.find(function(x){ return x.id === groupId; });
+      if (!g) return;
+      g.members.push({ id: uid('member'), name: name });
+      if (!state.donorLibrary.some(function(ld){ return ld.name === name; })) {
+        state.donorLibrary.push({ id: uid('lib'), name: name });
+      }
+      schedulePersist();
+      evt.target.reset();
+      render();
+    },
+    removeGroupMember: function(groupId, memberId){
+      var g = state.donorGroups.find(function(x){ return x.id === groupId; });
+      if (!g) return;
+      g.members = g.members.filter(function(m){ return m.id !== memberId; });
+      schedulePersist();
+      render();
+    },
+    addGroupMemberFromLibrary: function(groupId, libId){
+      var g = state.donorGroups.find(function(x){ return x.id === groupId; });
+      var lib = state.donorLibrary.find(function(l){ return l.id === libId; });
+      if (!g || !lib) return;
+      if (g.members.some(function(m){ return m.name === lib.name; })) return;
+      g.members.push({ id: uid('member'), name: lib.name });
+      schedulePersist();
+      render();
+    },
+    removeLibOrg: function(id){
+      state.orgLibrary = state.orgLibrary.filter(function(o){ return o.id !== id; });
+      schedulePersist();
+      render();
+    },
+    addLibOrg: function(evt){
+      evt.preventDefault();
+      var f = evt.target.elements;
+      var name = f.name.value.trim();
+      if (!name) return;
+      state.orgLibrary.push({ id: uid('lib'), name: name, phone: f.phone.value.trim(), address: f.address.value.trim(), capacity: f.capacity.value.trim() });
+      schedulePersist();
+      evt.target.reset();
+      render();
+    },
+    persistAndNotify: function(){
+      var s = getSheet(ui.sheetId);
+      if (s) upsertOrgLibrary(s.org);
+      persistNow();
+    }
+  };
+  window.App = App;
+
+  function fitLedgerToPage(){
+    var sheetEl = document.getElementById('ledgerSheet');
+    var frameEl = document.getElementById('printFrame');
+    if (!sheetEl || !frameEl) return;
+    sheetEl.style.transform = 'none';
+    var pxPerMm = 96 / 25.4;
+    var pageW = (210 - 24) * pxPerMm;
+    var pageH = (297 - 24) * pxPerMm;
+    var rect = sheetEl.getBoundingClientRect();
+    var scale = Math.min(1, pageW / rect.width, pageH / rect.height);
+    frameEl.style.width = pageW + 'px';
+    frameEl.style.height = pageH + 'px';
+    sheetEl.style.width = rect.width + 'px';
+    sheetEl.style.transformOrigin = 'top left';
+    sheetEl.style.transform = 'scale(' + scale + ')';
+  }
+  function resetLedgerScale(){
+    var sheetEl = document.getElementById('ledgerSheet');
+    var frameEl = document.getElementById('printFrame');
+    if (sheetEl) { sheetEl.style.transform = ''; sheetEl.style.width = ''; }
+    if (frameEl) { frameEl.style.width = ''; frameEl.style.height = ''; }
+  }
+  window.addEventListener('beforeprint', fitLedgerToPage);
+  window.addEventListener('afterprint', resetLedgerScale);
+  if (window.matchMedia) {
+    var printQuery = window.matchMedia('print');
+    if (printQuery && printQuery.addEventListener) {
+      printQuery.addEventListener('change', function(e){
+        if (e.matches) fitLedgerToPage(); else resetLedgerScale();
+      });
+    }
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
