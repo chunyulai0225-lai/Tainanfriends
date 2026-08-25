@@ -73,6 +73,10 @@
   :focus-visible{ outline:3px solid var(--brand); outline-offset:2px; border-radius:4px; }
 
   .page{ max-width:720px; margin:0 auto; padding:20px 16px 96px; display:flex; flex-direction:column; gap:20px; }
+  .page-editor{ max-width:1040px; }
+
+  .editor-cols{ display:grid; grid-template-columns:1fr; gap:20px; align-items:start; }
+  @media (min-width:760px){ .editor-cols{ grid-template-columns: 1fr 1fr; } }
 
   .topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding-top:4px; }
   .topbar h1{ font-size:24px; }
@@ -572,18 +576,20 @@
         '<label class="field"><span>地址</span><input value="' + esc(sheet.org.address) + '" oninput="App.updateOrgField(\'' + sheet.id + '\',\'address\',this.value)"></label>' +
         '<label class="field"><span>收容對象 / 備註</span><input value="' + esc(sheet.org.capacity) + '" oninput="App.updateOrgField(\'' + sheet.id + '\',\'capacity\',this.value)"></label>' +
       '</section>' +
-      '<section class="card"><h2>捐款人名單</h2>' +
-        (groupOptions ? '<label class="field"><span>套用固定名單</span><select onchange="App.applyDonorGroup(\'' + sheet.id + '\',this.value)"><option value="">— 請選擇 —</option>' + groupOptions + '</select></label>' : '') +
-        '<ul class="donor-list">' + donorRows + '</ul>' +
-        '<form class="inline-form" onsubmit="App.addDonorNew(event,\'' + sheet.id + '\')">' +
-          '<input name="name" placeholder="輸入新的姓名 / 家庭 / 團體" required>' +
-          '<button class="btn btn-primary" type="submit">加入</button>' +
-        '</form>' +
-        (libChips ? '<div class="chip-row"><span class="chip-label">常用名單:</span>' + libChips + '</div>' : '') +
-      '</section>' +
-      '<section class="card"><h2>捐贈物資</h2><div class="item-list">' + itemRows + '</div>' +
-        '<button class="btn btn-ghost btn-block" onclick="App.addItem(\'' + sheet.id + '\')">＋ 新增物資項目</button>' +
-      '</section>' +
+      '<div class="editor-cols">' +
+        '<section class="card"><h2>捐款人名單</h2>' +
+          (groupOptions ? '<label class="field"><span>套用固定名單</span><select onchange="App.applyDonorGroup(\'' + sheet.id + '\',this.value)"><option value="">— 請選擇 —</option>' + groupOptions + '</select></label>' : '') +
+          '<ul class="donor-list">' + donorRows + '</ul>' +
+          '<form class="inline-form" onsubmit="App.addDonorNew(event,\'' + sheet.id + '\')">' +
+            '<input name="name" placeholder="輸入新的姓名 / 家庭 / 團體" required>' +
+            '<button class="btn btn-primary" type="submit">加入</button>' +
+          '</form>' +
+          (libChips ? '<div class="chip-row"><span class="chip-label">常用名單:</span>' + libChips + '</div>' : '') +
+        '</section>' +
+        '<section class="card"><h2>捐贈物資</h2><div class="item-list">' + itemRows + '</div>' +
+          '<button class="btn btn-ghost btn-block" onclick="App.addItem(\'' + sheet.id + '\')">＋ 新增物資項目</button>' +
+        '</section>' +
+      '</div>' +
       '<div class="totalbar"><span>總計</span><strong id="grand-total">' + fmtMoney(sheetTotal(sheet)) + '</strong></div>' +
       '<div class="action-bar">' +
         '<button class="btn btn-ghost" onclick="App.persistAndNotify()">儲存</button>' +
