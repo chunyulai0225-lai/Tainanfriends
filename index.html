@@ -87,6 +87,13 @@
   .banner-info{ background:var(--brand-soft); color:var(--brand-strong); }
   .banner-warn{ background:var(--stamp-soft); color:var(--stamp); }
 
+  .sync-row{ display:flex; justify-content:flex-end; margin-top:-8px; }
+  .sync-badge{ font-size:13px; font-weight:700; padding:4px 10px; border-radius:999px; white-space:nowrap; }
+  .sync-ok{ background:var(--brand-soft); color:var(--brand-strong); }
+  .sync-saving{ background:var(--paper-line); color:var(--ink-soft); }
+  .sync-error{ background:var(--danger-soft); color:var(--danger); }
+  .sync-offline{ background:var(--paper-line); color:var(--ink-soft); }
+
   .btn{
     border:none; border-radius:12px; padding:14px 18px; font-weight:700; font-size:16px;
     cursor:pointer; min-height:48px; box-shadow:var(--shadow);
@@ -266,6 +273,7 @@
   var BACKEND_URL = 'https://script.google.com/macros/s/AKfycbyMt-bOdsHG7JKogmT632Bb_Itnr4kSH8Y0vuRqBpz3Ktp4ekOyQ_v8NtT4gaGze9DW/exec';
   var offlineMode = false;
   var syncError = false;
+  var saveState = 'saved';
   var persistTimer = null;
 
   var state = { donorLibrary: [], donorGroups: [], orgLibrary: [], sheets: [] };
@@ -314,21 +322,47 @@
       return null;
     }
   }
+  function syncBadgeState(){
+    if (offlineMode) return { cls: 'sync-badge sync-offline', text: '⚪ 尚未設定雲端同步' };
+    if (saveState === 'saving') return { cls: 'sync-badge sync-saving', text: '● 儲存中…' };
+    if (saveState === 'error') return { cls: 'sync-badge sync-error', text: '● 儲存失敗,將自動重試' };
+    return { cls: 'sync-badge sync-ok', text: '● 已儲存' };
+  }
+  function syncBadgeHtml(){
+    var s = syncBadgeState();
+    return '<span id="sync-status" class="' + s.cls + '">' + s.text + '</span>';
+  }
+  function updateSyncBadge(){
+    var el = document.getElementById('sync-status');
+    if (!el) return;
+    var s = syncBadgeState();
+    el.className = s.cls;
+    el.textContent = s.text;
+  }
+
   function flushPersist(){
     if (!BACKEND_URL) return Promise.resolve();
+    saveState = 'saving';
+    updateSyncBadge();
     return fetch(BACKEND_URL, { method: 'POST', body: JSON.stringify(state) })
       .then(function(res){
         syncError = !res.ok;
+        saveState = syncError ? 'error' : 'saved';
+        updateSyncBadge();
         if (syncError) render();
       })
       .catch(function(){
         syncError = true;
+        saveState = 'error';
+        updateSyncBadge();
         render();
       });
   }
   function schedulePersist(){
     saveCache();
     if (!BACKEND_URL) return;
+    saveState = 'saving';
+    updateSyncBadge();
     clearTimeout(persistTimer);
     persistTimer = setTimeout(flushPersist, 900);
   }
@@ -360,6 +394,7 @@
     } else {
       var remote = await loadRemote();
       if (remote !== null) state = remote;
+      saveState = syncError ? 'error' : 'saved';
     }
 
     if (!state.donorLibrary) state.donorLibrary = [];
@@ -407,6 +442,7 @@
     return '<div class="page">' +
       '<header class="topbar"><h1>朋友會集資帳本</h1>' +
       '<button class="link-btn" onclick="App.goManage()">管理常用名單</button></header>' +
+      '<div class="sync-row">' + syncBadgeHtml() + '</div>' +
       (offlineMode ? '<div class="banner banner-warn">尚未設定雲端同步,目前資料只存在這台裝置。</div>' : '') +
       (!offlineMode && syncError ? '<div class="banner banner-warn">目前連不上雲端,已先存在這台裝置,恢復連線後會自動再同步。</div>' : '') +
       '<button class="btn btn-primary btn-block btn-lg" onclick="App.newSheet()">＋ 新增空白表格</button>' +
@@ -452,7 +488,9 @@
 
     return '<div class="page">' +
       '<header class="topbar"><button class="link-btn" onclick="App.goHome()">← 返回列表</button>' +
-      '<h1>管理常用名單</h1><span></span></header>' +
+      '<h1>管理常用名單</h1>' +
+      '<button class="btn btn-ghost" onclick="App.persistAndNotify()">儲存</button></header>' +
+      '<div class="sync-row">' + syncBadgeHtml() + '</div>' +
       '<section class="card"><h2>固定聯絡資訊</h2>' +
         '<p class="empty" style="padding:0">這段文字會固定顯示在每一張表格的列印畫面上。</p>' +
         '<textarea class="notice-input" rows="4" oninput="App.updateNotice(this.value)">' + esc(state.notice) + '</textarea>' +
@@ -522,6 +560,7 @@
 
     return '<div class="page page-editor">' +
       '<header class="topbar"><button class="link-btn" onclick="App.goHome()">← 返回列表</button><h1>編輯表格</h1><span></span></header>' +
+      '<div class="sync-row">' + syncBadgeHtml() + '</div>' +
       (offlineMode ? '<div class="banner banner-warn">尚未設定雲端同步,目前資料只存在這台裝置。</div>' : '') +
       (!offlineMode && syncError ? '<div class="banner banner-warn">目前連不上雲端,已先存在這台裝置,恢復連線後會自動再同步。</div>' : '') +
       '<section class="card"><label class="field"><span>本次集資名稱</span>' +
