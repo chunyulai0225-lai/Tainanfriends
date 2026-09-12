@@ -169,14 +169,19 @@
 
   .item-list{ display:flex; flex-direction:column; gap:10px; }
   .item-row{
-    display:grid; grid-template-columns: 1fr 90px 70px auto auto; gap:8px; align-items:center;
-    padding:8px; border:1px solid var(--paper-line); border-radius:10px; background:var(--paper);
+    display:flex; flex-direction:column; gap:8px;
+    padding:10px; border:1px solid var(--paper-line); border-radius:10px; background:var(--paper);
   }
   .item-row input{
     border:1px solid var(--paper-line); border-radius:8px; padding:10px; background:var(--card);
     color:var(--ink); font-size:15px; min-height:40px; width:100%;
   }
-  .item-subtotal{ font-variant-numeric:tabular-nums; font-weight:700; white-space:nowrap; font-size:14px; text-align:right; }
+  .item-row-meta{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .item-row-meta .item-num{ width:76px; flex-shrink:0; }
+  .item-subtotal{
+    font-variant-numeric:tabular-nums; font-weight:700; white-space:nowrap; font-size:14px;
+    margin-left:auto; padding-left:4px;
+  }
 
   .totalbar{
     position:sticky; bottom:76px; display:flex; justify-content:space-between; align-items:center;
@@ -555,10 +560,12 @@
       var sub = (Number(it.unitPrice)||0) * (Number(it.qty)||0);
       return '<div class="item-row" id="row-' + it.id + '">' +
         '<input class="item-name" placeholder="物資名稱" value="' + esc(it.name) + '" oninput="App.updateItem(\'' + sheet.id + '\',\'' + it.id + '\',\'name\',this.value)">' +
-        '<input class="item-num" type="number" inputmode="decimal" min="0" step="1" placeholder="單價" value="' + it.unitPrice + '" oninput="App.updateItem(\'' + sheet.id + '\',\'' + it.id + '\',\'unitPrice\',this.value)">' +
-        '<input class="item-num" type="number" inputmode="numeric" min="0" step="1" placeholder="數量" value="' + it.qty + '" oninput="App.updateItem(\'' + sheet.id + '\',\'' + it.id + '\',\'qty\',this.value)">' +
-        '<span class="item-subtotal" id="subtotal-' + it.id + '">' + fmtMoney(sub) + '</span>' +
-        '<button class="icon-btn" onclick="App.removeItem(\'' + sheet.id + '\',\'' + it.id + '\')" aria-label="刪除">✕</button>' +
+        '<div class="item-row-meta">' +
+          '<input class="item-num" type="number" inputmode="decimal" min="0" step="1" placeholder="單價" value="' + it.unitPrice + '" oninput="App.updateItem(\'' + sheet.id + '\',\'' + it.id + '\',\'unitPrice\',this.value)">' +
+          '<input class="item-num" type="number" inputmode="numeric" min="0" step="1" placeholder="數量" value="' + it.qty + '" oninput="App.updateItem(\'' + sheet.id + '\',\'' + it.id + '\',\'qty\',this.value)">' +
+          '<span class="item-subtotal" id="subtotal-' + it.id + '">' + fmtMoney(sub) + '</span>' +
+          '<button class="icon-btn" onclick="App.removeItem(\'' + sheet.id + '\',\'' + it.id + '\')" aria-label="刪除">✕</button>' +
+        '</div>' +
       '</div>';
     }).join('') || '<p class="empty">尚未新增物資,點下面按鈕開始新增。</p>';
 
