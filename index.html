@@ -204,6 +204,17 @@
   .lib-org-name{ font-weight:700; }
   .lib-org-detail{ font-size:13px; color:var(--ink-soft); }
 
+  .lib-grid{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:8px;
+    max-height:360px; overflow-y:auto; padding:4px 4px 4px 0;
+  }
+  .lib-grid .lib-row{ padding:8px 10px; }
+  .filter-input{
+    border:1px solid var(--paper-line); border-radius:10px; padding:10px 12px;
+    background:var(--paper); color:var(--ink); font-size:15px; min-height:44px; width:100%;
+  }
+  .import-btn-row{ display:flex; gap:8px; flex-wrap:wrap; }
+
   .group-card{
     border:1px solid var(--paper-line); border-radius:12px; padding:12px;
     display:flex; flex-direction:column; gap:10px; background:var(--paper);
@@ -274,6 +285,7 @@
 
 <div id="app"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 (function(){
   var STORAGE_KEY = 'friendsFundLedger_v1_cache';
@@ -286,7 +298,7 @@
   var persistTimer = null;
 
   var state = { donorLibrary: [], donorGroups: [], orgLibrary: [], sheets: [] };
-  var ui = { view: 'home', sheetId: null };
+  var ui = { view: 'home', sheetId: null, donorFilter: '' };
 
   function uid(prefix){
     return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8);
@@ -460,10 +472,14 @@
   }
 
   function renderManage(){
-    var donorRows = state.donorLibrary.map(function(d){
+    var donorFilterVal = (ui.donorFilter || '').trim().toLowerCase();
+    var filteredDonors = donorFilterVal
+      ? state.donorLibrary.filter(function(d){ return d.name.toLowerCase().indexOf(donorFilterVal) !== -1; })
+      : state.donorLibrary;
+    var donorRows = filteredDonors.map(function(d){
       return '<li class="lib-row"><span>' + esc(d.name) + '</span>' +
         '<button class="icon-btn" onclick="App.removeLibDonor(\'' + d.id + '\')" aria-label="刪除">✕</button></li>';
-    }).join('') || '<li class="empty">尚未建立任何常用捐款人</li>';
+    }).join('') || '<li class="empty">' + (donorFilterVal ? '找不到符合的姓名' : '尚未建立任何常用捐款人') + '</li>';
 
     var orgRows = state.orgLibrary.map(function(o){
       return '<li class="lib-row"><div><div class="lib-org-name">' + esc(o.name) + '</div>' +
@@ -512,7 +528,14 @@
           '<button class="btn btn-primary" type="submit">新增名單</button>' +
         '</form>' +
       '</section>' +
-      '<section class="card"><h2>常用捐款人</h2><ul class="lib-list">' + donorRows + '</ul>' +
+      '<section class="card"><h2>常用捐款人</h2>' +
+        '<div class="import-btn-row">' +
+          '<input type="file" id="donor-import-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="App.importDonorsFile(this)">' +
+          '<button type="button" class="btn btn-ghost" onclick="document.getElementById(\'donor-import-file\').click()">📥 從 Excel 匯入</button>' +
+        '</div>' +
+        '<p class="empty" style="padding:0">Excel第一欄放姓名,一行一個(有沒有標題列都可以),支援 .xlsx / .csv。目前共 ' + state.donorLibrary.length + ' 人。</p>' +
+        '<input id="donor-filter-input" class="filter-input" type="text" placeholder="搜尋姓名…" value="' + esc(ui.donorFilter) + '" oninput="App.filterDonors(this.value)">' +
+        '<ul class="lib-list lib-grid">' + donorRows + '</ul>' +
         '<form class="inline-form" onsubmit="App.addLibDonor(event)">' +
           '<input name="name" placeholder="輸入姓名 / 家庭 / 團體名稱" required>' +
           '<button class="btn btn-primary" type="submit">加入</button>' +
@@ -792,6 +815,43 @@
       state.donorLibrary = state.donorLibrary.filter(function(d){ return d.id !== id; });
       schedulePersist();
       render();
+    },
+    filterDonors: function(value){
+      ui.donorFilter = value;
+      render();
+      var el = document.getElementById('donor-filter-input');
+      if (el) { el.focus(); var v = el.value; el.setSelectionRange(v.length, v.length); }
+    },
+    importDonorsFile: function(inputEl){
+      var file = inputEl.files && inputEl.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function(e){
+        try {
+          var data = new Uint8Array(e.target.result);
+          var wb = XLSX.read(data, { type: 'array' });
+          var firstSheet = wb.Sheets[wb.SheetNames[0]];
+          var rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+          var added = 0, skipped = 0;
+          rows.forEach(function(row){
+            var raw = row && row[0];
+            if (raw === undefined || raw === null) return;
+            var name = String(raw).trim();
+            if (!name) return;
+            if (/^(姓名|name|名字|捐款人|捐款人名單)$/i.test(name)) return;
+            if (state.donorLibrary.some(function(ld){ return ld.name === name; })) { skipped++; return; }
+            state.donorLibrary.push({ id: uid('lib'), name: name });
+            added++;
+          });
+          schedulePersist();
+          render();
+          alert('匯入完成:新增 ' + added + ' 位,略過重複 ' + skipped + ' 位。');
+        } catch (err) {
+          alert('匯入失敗,請確認檔案是 .xlsx 或 .csv,且姓名放在第一欄。');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+      inputEl.value = '';
     },
     addLibDonor: function(evt){
       evt.preventDefault();
