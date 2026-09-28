@@ -203,6 +203,7 @@
   }
   .lib-org-name{ font-weight:700; }
   .lib-org-detail{ font-size:13px; color:var(--ink-soft); }
+  .lib-row-editing{ flex-direction:column; align-items:stretch; }
 
   .lib-grid{
     display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:8px;
@@ -298,7 +299,7 @@
   var persistTimer = null;
 
   var state = { donorLibrary: [], donorGroups: [], orgLibrary: [], sheets: [] };
-  var ui = { view: 'home', sheetId: null, donorFilter: '' };
+  var ui = { view: 'home', sheetId: null, donorFilter: '', editingOrgId: null };
 
   function uid(prefix){
     return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8);
@@ -509,9 +510,24 @@
     }).join('') || '<li class="empty">' + (donorFilterVal ? '找不到符合的姓名' : '尚未建立任何常用捐款人') + '</li>';
 
     var orgRows = state.orgLibrary.map(function(o){
+      if (ui.editingOrgId === o.id) {
+        return '<li class="lib-row lib-row-editing">' +
+          '<form class="inline-form inline-form-org" onsubmit="App.saveLibOrgEdit(event,\'' + o.id + '\')" style="flex:1">' +
+            '<input name="name" placeholder="單位名稱" value="' + esc(o.name) + '" required>' +
+            '<input name="phone" placeholder="電話" value="' + esc(o.phone||'') + '">' +
+            '<input name="address" placeholder="地址" value="' + esc(o.address||'') + '">' +
+            '<input name="capacity" placeholder="收容對象 / 備註" value="' + esc(o.capacity||'') + '">' +
+            '<button class="btn btn-primary" type="submit">儲存</button>' +
+            '<button class="btn btn-ghost" type="button" onclick="App.cancelLibOrgEdit()">取消</button>' +
+          '</form>' +
+        '</li>';
+      }
       return '<li class="lib-row"><div><div class="lib-org-name">' + esc(o.name) + '</div>' +
         '<div class="lib-org-detail">' + esc(o.phone||'') + ' ' + esc(o.address||'') + '</div></div>' +
-        '<button class="icon-btn" onclick="App.removeLibOrg(\'' + o.id + '\')" aria-label="刪除">✕</button></li>';
+        '<div style="display:flex;gap:4px">' +
+        '<button class="icon-btn" onclick="App.editLibOrg(\'' + o.id + '\')" aria-label="編輯">✎</button>' +
+        '<button class="icon-btn" onclick="App.removeLibOrg(\'' + o.id + '\')" aria-label="刪除">✕</button>' +
+        '</div></li>';
     }).join('') || '<li class="empty">尚未建立任何常用受贈單位</li>';
 
     var groupCards = state.donorGroups.map(function(g){
@@ -839,6 +855,7 @@
       schedulePersist();
     },
     removeLibDonor: function(id){
+      if (!confirm('確定要刪除這位常用捐款人嗎？')) return;
       state.donorLibrary = state.donorLibrary.filter(function(d){ return d.id !== id; });
       schedulePersist();
       render();
@@ -937,8 +954,33 @@
       schedulePersist();
       render();
     },
+    editLibOrg: function(id){
+      ui.editingOrgId = id;
+      render();
+    },
+    cancelLibOrgEdit: function(){
+      ui.editingOrgId = null;
+      render();
+    },
+    saveLibOrgEdit: function(evt, id){
+      evt.preventDefault();
+      var f = evt.target.elements;
+      var name = f.name.value.trim();
+      if (!name) return;
+      var o = state.orgLibrary.find(function(x){ return x.id === id; });
+      if (!o) return;
+      o.name = name;
+      o.phone = f.phone.value.trim();
+      o.address = f.address.value.trim();
+      o.capacity = f.capacity.value.trim();
+      ui.editingOrgId = null;
+      schedulePersist();
+      render();
+    },
     removeLibOrg: function(id){
+      if (!confirm('確定要刪除這個常用受贈單位嗎？刪除後無法復原。')) return;
       state.orgLibrary = state.orgLibrary.filter(function(o){ return o.id !== id; });
+      if (ui.editingOrgId === id) ui.editingOrgId = null;
       schedulePersist();
       render();
     },
