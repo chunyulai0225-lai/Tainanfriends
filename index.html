@@ -326,6 +326,33 @@
   }
   function getSheet(id){ return state.sheets.find(function(s){ return s.id === id; }); }
 
+  function isHeaderLike(s){
+    return /^(姓名|name|名字|捐款人|捐款人名單|編號|序號|no\.?|項次)$/i.test(s);
+  }
+  function extractNamesFromSheet(sheet){
+    var rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+    var numbered = rows.some(function(row){
+      return row && typeof row[0] === 'number' && row[1] !== undefined && row[1] !== null && String(row[1]).trim() !== '';
+    });
+    var names = [];
+    rows.forEach(function(row){
+      if (!row) return;
+      if (numbered) {
+        if (typeof row[0] === 'number' && row[1] !== undefined && row[1] !== null) {
+          var name = String(row[1]).trim();
+          if (name && !isHeaderLike(name)) names.push(name);
+        }
+      } else {
+        var a = row[0];
+        if (a !== undefined && a !== null) {
+          var name2 = String(a).trim();
+          if (name2 && name2.length <= 20 && !isHeaderLike(name2)) names.push(name2);
+        }
+      }
+    });
+    return names;
+  }
+
   function saveCache(){
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){}
   }
@@ -533,7 +560,7 @@
           '<input type="file" id="donor-import-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="App.importDonorsFile(this)">' +
           '<button type="button" class="btn btn-ghost" onclick="document.getElementById(\'donor-import-file\').click()">📥 從 Excel 匯入</button>' +
         '</div>' +
-        '<p class="empty" style="padding:0">Excel第一欄放姓名,一行一個(有沒有標題列都可以),支援 .xlsx / .csv。目前共 ' + state.donorLibrary.length + ' 人。</p>' +
+        '<p class="empty" style="padding:0">支援 .xlsx / .csv,會自動掃描檔案裡所有工作表(分頁)。不管是「編號+姓名」兩欄的格式(跟原本紙本表格一樣),還是單純一欄姓名,都能自動辨識,同名的人只會加入一次。目前共 ' + state.donorLibrary.length + ' 人。</p>' +
         '<input id="donor-filter-input" class="filter-input" type="text" placeholder="搜尋姓名…" value="' + esc(ui.donorFilter) + '" oninput="App.filterDonors(this.value)">' +
         '<ul class="lib-list lib-grid">' + donorRows + '</ul>' +
         '<form class="inline-form" onsubmit="App.addLibDonor(event)">' +
@@ -830,24 +857,23 @@
         try {
           var data = new Uint8Array(e.target.result);
           var wb = XLSX.read(data, { type: 'array' });
-          var firstSheet = wb.Sheets[wb.SheetNames[0]];
-          var rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
           var added = 0, skipped = 0;
-          rows.forEach(function(row){
-            var raw = row && row[0];
-            if (raw === undefined || raw === null) return;
-            var name = String(raw).trim();
-            if (!name) return;
-            if (/^(姓名|name|名字|捐款人|捐款人名單)$/i.test(name)) return;
-            if (state.donorLibrary.some(function(ld){ return ld.name === name; })) { skipped++; return; }
-            state.donorLibrary.push({ id: uid('lib'), name: name });
-            added++;
+          var seen = {};
+          state.donorLibrary.forEach(function(ld){ seen[ld.name] = true; });
+          wb.SheetNames.forEach(function(sheetName){
+            var names = extractNamesFromSheet(wb.Sheets[sheetName]);
+            names.forEach(function(name){
+              if (seen[name]) { skipped++; return; }
+              seen[name] = true;
+              state.donorLibrary.push({ id: uid('lib'), name: name });
+              added++;
+            });
           });
           schedulePersist();
           render();
-          alert('匯入完成:新增 ' + added + ' 位,略過重複 ' + skipped + ' 位。');
+          alert('匯入完成:共掃描 ' + wb.SheetNames.length + ' 個工作表,新增 ' + added + ' 位,略過重複 ' + skipped + ' 位。');
         } catch (err) {
-          alert('匯入失敗,請確認檔案是 .xlsx 或 .csv,且姓名放在第一欄。');
+          alert('匯入失敗,請確認檔案格式是 .xlsx 或 .csv。');
         }
       };
       reader.readAsArrayBuffer(file);
