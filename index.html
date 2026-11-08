@@ -515,6 +515,7 @@
       '<div class="stub-actions">' +
         '<button class="btn btn-primary" onclick="App.openSheet(\'' + s.id + '\')">開啟</button>' +
         '<button class="btn btn-ghost" onclick="App.duplicateSheet(\'' + s.id + '\')">複製建立新表格</button>' +
+        '<button class="btn btn-ghost" onclick="App.quickScreenshot(\'' + s.id + '\')">📷 截圖</button>' +
         '<button class="btn btn-danger" onclick="App.deleteSheet(\'' + s.id + '\')">刪除</button>' +
       '</div>' +
     '</article>';
@@ -810,6 +811,38 @@
     '</div>';
   }
 
+  function captureLedgerScreenshot(el, sheet, onDone){
+    if (!el || typeof html2canvas === 'undefined') {
+      alert('截圖功能載入失敗,請檢查網路連線後重新整理再試一次。');
+      if (onDone) onDone();
+      return;
+    }
+    html2canvas(el, { backgroundColor: '#ffffff', scale: 2 }).then(function(canvas){
+      var base = ((sheet && sheet.roundLabel) || '集資表格') + '-' + ((sheet && sheet.org.name) || '');
+      var filename = base.replace(/[\\/:*?"<>|]/g, '').trim() + '.png';
+      canvas.toBlob(function(blob){
+        if (onDone) onDone();
+        if (!blob) { alert('截圖失敗,請稍後再試。'); return; }
+        var url = URL.createObjectURL(blob);
+        var isIOS = /iP(hone|od|ad)/.test(navigator.userAgent);
+        if (isIOS) {
+          window.open(url, '_blank');
+        } else {
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
+        setTimeout(function(){ URL.revokeObjectURL(url); }, 30000);
+      });
+    }).catch(function(){
+      if (onDone) onDone();
+      alert('截圖失敗,請稍後再試。');
+    });
+  }
+
   var App = {
     goHome: function(){
       if (ui.view === 'editor' && ui.sheetId) {
@@ -844,32 +877,24 @@
     },
     saveScreenshot: function(){
       var el = document.querySelector('.page-preview .ledger-sheet');
-      if (!el || typeof html2canvas === 'undefined') {
-        alert('截圖功能載入失敗,請檢查網路連線後重新整理再試一次。');
-        return;
-      }
-      html2canvas(el, { backgroundColor: '#ffffff', scale: 2 }).then(function(canvas){
-        var sheet = getSheet(ui.sheetId);
-        var base = ((sheet && sheet.roundLabel) || '集資表格') + '-' + ((sheet && sheet.org.name) || '');
-        var filename = base.replace(/[\\/:*?"<>|]/g, '').trim() + '.png';
-        canvas.toBlob(function(blob){
-          if (!blob) { alert('截圖失敗,請稍後再試。'); return; }
-          var url = URL.createObjectURL(blob);
-          var isIOS = /iP(hone|od|ad)/.test(navigator.userAgent);
-          if (isIOS) {
-            window.open(url, '_blank');
-          } else {
-            var a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-          }
-          setTimeout(function(){ URL.revokeObjectURL(url); }, 30000);
-        });
-      }).catch(function(){
-        alert('截圖失敗,請稍後再試。');
+      captureLedgerScreenshot(el, getSheet(ui.sheetId));
+    },
+    quickScreenshot: function(sheetId){
+      var sheet = getSheet(sheetId);
+      if (!sheet) return;
+      var wrapper = document.createElement('div');
+      wrapper.style.position = 'fixed';
+      wrapper.style.left = '-9999px';
+      wrapper.style.top = '0';
+      wrapper.style.width = '680px';
+      var savedMode = ui.screenshotMode;
+      ui.screenshotMode = true;
+      wrapper.innerHTML = renderLedgerPage(sheet, true);
+      ui.screenshotMode = savedMode;
+      document.body.appendChild(wrapper);
+      var el = wrapper.querySelector('.ledger-sheet');
+      captureLedgerScreenshot(el, sheet, function(){
+        document.body.removeChild(wrapper);
       });
     },
     newSheet: function(){
