@@ -882,9 +882,19 @@
     },
     saveScreenshot: function(){
       var el = document.querySelector('.page-preview .ledger-sheet');
+      var noticeEl = el ? el.querySelector('.ledger-notice') : null;
+      var hadInlineDisplay = noticeEl ? noticeEl.style.display : null;
+      if (ui.screenshotMode && noticeEl) {
+        noticeEl.style.setProperty('display', 'none', 'important');
+      }
       var isIOS = /iP(hone|od|ad)/.test(navigator.userAgent);
       var previewWindow = isIOS ? window.open('', '_blank') : null;
-      captureLedgerScreenshot(el, getSheet(ui.sheetId), previewWindow);
+      captureLedgerScreenshot(el, getSheet(ui.sheetId), previewWindow, function(){
+        if (noticeEl) {
+          if (hadInlineDisplay) noticeEl.style.display = hadInlineDisplay;
+          else noticeEl.style.removeProperty('display');
+        }
+      });
     },
     quickScreenshot: function(sheetId){
       var sheet = getSheet(sheetId);
@@ -896,10 +906,9 @@
       wrapper.style.left = '-9999px';
       wrapper.style.top = '0';
       wrapper.style.width = '680px';
-      var savedMode = ui.screenshotMode;
-      ui.screenshotMode = true;
       wrapper.innerHTML = renderLedgerPage(sheet, true);
-      ui.screenshotMode = savedMode;
+      var noticeEl = wrapper.querySelector('.ledger-notice');
+      if (noticeEl && noticeEl.parentNode) noticeEl.parentNode.removeChild(noticeEl);
       document.body.appendChild(wrapper);
       var el = wrapper.querySelector('.ledger-sheet');
       captureLedgerScreenshot(el, sheet, previewWindow, function(){
