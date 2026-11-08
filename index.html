@@ -80,6 +80,7 @@
 
   .topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding-top:4px; }
   .topbar h1{ font-size:24px; }
+  .topbar-actions{ display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end; }
 
   .link-btn{
     background:none; border:none; color:var(--brand); font-weight:700;
@@ -196,6 +197,11 @@
   }
   .action-bar .btn{ flex:1; }
 
+  .screenshot-bar{
+    display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+    padding:10px 0;
+  }
+
   .lib-list{ display:flex; flex-direction:column; gap:8px; }
   .lib-row{
     display:flex; align-items:center; justify-content:space-between; gap:10px;
@@ -231,6 +237,19 @@
     white-space:pre-line; font-size:13px; color:var(--ink-soft); border-top:1px dashed var(--paper-line);
     padding-top:10px; margin-top:2px;
   }
+  .hide-for-screenshot{ display:none; }
+
+  .year-section{ display:flex; flex-direction:column; gap:10px; }
+  .year-header{
+    display:flex; align-items:center; gap:10px; width:100%; text-align:left;
+    background:none; border:none; padding:10px 4px; cursor:pointer; font:inherit; color:inherit;
+  }
+  .year-toggle{ font-size:13px; color:var(--ink-soft); width:14px; flex-shrink:0; }
+  .year-label{ font-weight:700; font-size:17px; }
+  .year-meta{ margin-left:auto; font-size:13px; color:var(--ink-soft); white-space:nowrap; }
+
+  .bulk-page-label{ font-size:13px; color:var(--ink-soft); margin:0 0 6px 4px; }
+  .bulk-page + .bulk-page{ margin-top:28px; padding-top:20px; border-top:1px dashed var(--paper-line); }
 
   /* preview / print ledger sheet */
   .ledger-sheet{
@@ -278,6 +297,9 @@
     .ledger-sheet{ box-shadow:none; border:1px solid #ccc; transform-origin:top left; }
     .stamp{ border-color:#B23A2E; color:#B23A2E; }
     .pv-total{ color:#B23A2E; border-top-color:#B23A2E; }
+    .ledger-notice.hide-for-screenshot{ display:block !important; }
+    .bulk-page + .bulk-page{ margin-top:0; padding-top:0; border-top:none; }
+    .bulk-page-break{ break-after:page; page-break-after:always; }
   }
 </style>
 </head>
@@ -287,6 +309,7 @@
 <div id="app"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
 (function(){
   var STORAGE_KEY = 'friendsFundLedger_v1_cache';
@@ -299,7 +322,7 @@
   var persistTimer = null;
 
   var state = { donorLibrary: [], donorGroups: [], orgLibrary: [], sheets: [] };
-  var ui = { view: 'home', sheetId: null, donorFilter: '', editingOrgId: null };
+  var ui = { view: 'home', sheetId: null, donorFilter: '', editingOrgId: null, collapsedYears: {}, screenshotMode: false };
 
   function uid(prefix){
     return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8);
@@ -317,6 +340,9 @@
     var d = new Date(iso);
     if (isNaN(d.getTime())) return '';
     return d.getFullYear() + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getDate()).padStart(2,'0');
+  }
+  function currentROCYear(){
+    return new Date().getFullYear() - 1911;
   }
   function sheetTotal(sheet){
     return sheet.items.reduce(function(sum, it){ return sum + (Number(it.unitPrice)||0) * (Number(it.qty)||0); }, 0);
@@ -452,6 +478,13 @@
     if (!state.sheets) state.sheets = [];
     if (state.notice === undefined) state.notice = DEFAULT_NOTICE;
 
+    state.sheets.forEach(function(s){
+      if (s.year === undefined || s.year === null) {
+        var d = new Date(s.createdAt);
+        s.year = isNaN(d.getTime()) ? currentROCYear() : (d.getFullYear() - 1911);
+      }
+    });
+
     render();
   }
 
@@ -461,41 +494,71 @@
     if (ui.view === 'manage') html = renderManage();
     else if (ui.view === 'editor') html = renderEditor();
     else if (ui.view === 'preview') html = renderPreview();
+    else if (ui.view === 'bulkPrint') html = renderBulkPrint();
     else html = renderHome();
     app.innerHTML = html;
   }
 
+  function renderStubCard(s){
+    return '<article class="stub">' +
+      '<div class="stub-row">' +
+        '<div>' +
+          '<div class="stub-round">' + esc(s.roundLabel || '未命名集資') + '</div>' +
+          '<h3 class="stub-org">' + esc(s.org.name || '(尚未填寫受贈單位)') + '</h3>' +
+        '</div>' +
+        '<div class="stub-total">' + fmtMoney(sheetTotal(s)) + '</div>' +
+      '</div>' +
+      '<div class="stub-meta">' +
+        '<span>建立於 ' + fmtDate(s.createdAt) + '</span>' +
+        '<span>捐款人 ' + sheetDonorCount(s) + '</span>' +
+      '</div>' +
+      '<div class="stub-actions">' +
+        '<button class="btn btn-primary" onclick="App.openSheet(\'' + s.id + '\')">開啟</button>' +
+        '<button class="btn btn-ghost" onclick="App.duplicateSheet(\'' + s.id + '\')">複製建立新表格</button>' +
+        '<button class="btn btn-danger" onclick="App.deleteSheet(\'' + s.id + '\')">刪除</button>' +
+      '</div>' +
+    '</article>';
+  }
+
   function renderHome(){
     var sheets = state.sheets.slice().sort(function(a,b){ return new Date(b.createdAt) - new Date(a.createdAt); });
-    var cards = sheets.map(function(s){
-      return '<article class="stub">' +
-        '<div class="stub-row">' +
-          '<div>' +
-            '<div class="stub-round">' + esc(s.roundLabel || '未命名集資') + '</div>' +
-            '<h3 class="stub-org">' + esc(s.org.name || '(尚未填寫受贈單位)') + '</h3>' +
-          '</div>' +
-          '<div class="stub-total">' + fmtMoney(sheetTotal(s)) + '</div>' +
-        '</div>' +
-        '<div class="stub-meta">' +
-          '<span>建立於 ' + fmtDate(s.createdAt) + '</span>' +
-          '<span>捐款人 ' + sheetDonorCount(s) + '</span>' +
-        '</div>' +
-        '<div class="stub-actions">' +
-          '<button class="btn btn-primary" onclick="App.openSheet(\'' + s.id + '\')">開啟</button>' +
-          '<button class="btn btn-ghost" onclick="App.duplicateSheet(\'' + s.id + '\')">複製建立新表格</button>' +
-          '<button class="btn btn-danger" onclick="App.deleteSheet(\'' + s.id + '\')">刪除</button>' +
-        '</div>' +
-      '</article>';
-    }).join('');
+    var groups = {};
+    sheets.forEach(function(s){
+      var y = (s.year != null) ? s.year : '未分類';
+      if (!groups[y]) groups[y] = [];
+      groups[y].push(s);
+    });
+    var years = Object.keys(groups).sort(function(a,b){
+      if (a === '未分類') return 1;
+      if (b === '未分類') return -1;
+      return Number(b) - Number(a);
+    });
+    var yearSections = years.map(function(y){
+      var list = groups[y];
+      var total = list.reduce(function(sum,s){ return sum + sheetTotal(s); }, 0);
+      var collapsed = !!ui.collapsedYears[y];
+      var cards = list.map(renderStubCard).join('');
+      return '<section class="year-section">' +
+        '<button type="button" class="year-header" onclick="App.toggleYearCollapse(\'' + y + '\')">' +
+          '<span class="year-toggle">' + (collapsed ? '▸' : '▾') + '</span>' +
+          '<span class="year-label">' + (y === '未分類' ? '未分類' : esc(y) + ' 年度') + '</span>' +
+          '<span class="year-meta">' + list.length + ' 筆・' + fmtMoney(total) + '</span>' +
+        '</button>' +
+        (collapsed ? '' : '<div class="stub-list">' + cards + '</div>') +
+      '</section>';
+    }).join('') || '<p class="empty">目前還沒有任何表格,點上面按鈕開始新增。</p>';
 
     return '<div class="page">' +
       '<header class="topbar"><h1>朋友會集資帳本</h1>' +
-      '<button class="link-btn" onclick="App.goManage()">管理常用名單</button></header>' +
+      '<div class="topbar-actions">' +
+        (sheets.length ? '<button class="link-btn" onclick="App.goBulkPrint()">整批列印</button>' : '') +
+        '<button class="link-btn" onclick="App.goManage()">管理常用名單</button>' +
+      '</div></header>' +
       '<div class="sync-row">' + syncBadgeHtml() + '</div>' +
       (offlineMode ? '<div class="banner banner-warn">尚未設定雲端同步,目前資料只存在這台裝置。</div>' : '') +
       (!offlineMode && syncError ? '<div class="banner banner-warn">目前連不上雲端,已先存在這台裝置,恢復連線後會自動再同步。</div>' : '') +
       '<button class="btn btn-primary btn-block btn-lg" onclick="App.newSheet()">＋ 新增空白表格</button>' +
-      '<div class="stub-list">' + (cards || '<p class="empty">目前還沒有任何表格,點上面按鈕開始新增。</p>') + '</div>' +
+      yearSections +
     '</div>';
   }
 
@@ -641,7 +704,10 @@
       (offlineMode ? '<div class="banner banner-warn">尚未設定雲端同步,目前資料只存在這台裝置。</div>' : '') +
       (!offlineMode && syncError ? '<div class="banner banner-warn">目前連不上雲端,已先存在這台裝置,恢復連線後會自動再同步。</div>' : '') +
       '<section class="card"><label class="field"><span>本次集資名稱</span>' +
-        '<input value="' + esc(sheet.roundLabel) + '" placeholder="例如：115年6月份 第36次集資" oninput="App.updateSheetField(\'' + sheet.id + '\',\'roundLabel\',this.value)"></label></section>' +
+        '<input value="' + esc(sheet.roundLabel) + '" placeholder="例如：115年6月份 第36次集資" oninput="App.updateSheetField(\'' + sheet.id + '\',\'roundLabel\',this.value)"></label>' +
+        '<label class="field"><span>年度(民國年,用於首頁分類)</span>' +
+          '<input type="number" inputmode="numeric" value="' + (sheet.year != null ? sheet.year : '') + '" oninput="App.updateSheetField(\'' + sheet.id + '\',\'year\',this.value)"></label>' +
+      '</section>' +
       '<section class="card"><h2>受贈單位</h2>' +
         (orgOptions ? '<label class="field"><span>從常用單位選擇</span><select onchange="App.pickOrg(\'' + sheet.id + '\',this.value)"><option value="">— 請選擇 —</option>' + orgOptions + '</select></label>' : '') +
         '<label class="field"><span>單位名稱</span><input value="' + esc(sheet.org.name) + '" oninput="App.updateOrgField(\'' + sheet.id + '\',\'name\',this.value)"></label>' +
@@ -671,9 +737,7 @@
     '</div>';
   }
 
-  function renderPreview(){
-    var sheet = getSheet(ui.sheetId);
-    if (!sheet) { ui.view = 'home'; return renderHome(); }
+  function renderLedgerPage(sheet, isLast, label){
     var donors = sheet.donors.filter(function(d){ return d.checked; });
     var donorItems = donors.map(function(d,i){
       return '<li><span class="pv-num">' + (i+1) + '</span>' + esc(d.name) + '</li>';
@@ -687,18 +751,16 @@
     }).join('');
 
     var stampText = sheet.org.name ? sheet.org.name.slice(0,2) : '收據';
+    var noticeClass = ui.screenshotMode ? ' hide-for-screenshot' : '';
 
-    return '<div class="page page-preview">' +
-      '<div class="no-print action-bar">' +
-        '<button class="btn btn-ghost" onclick="App.goEditor(\'' + sheet.id + '\')">← 返回編輯</button>' +
-        '<button class="btn btn-primary" onclick="window.print()">列印 / 存成 PDF</button>' +
-      '</div>' +
-      '<div class="print-frame" id="printFrame">' +
-      '<div class="ledger-sheet" id="ledgerSheet">' +
+    return '<div class="bulk-page' + (isLast ? '' : ' bulk-page-break') + '">' +
+      (label ? '<div class="bulk-page-label no-print">' + esc(label) + '</div>' : '') +
+      '<div class="print-frame">' +
+      '<div class="ledger-sheet">' +
         '<div class="ledger-head"><div><div class="ledger-round">' + esc(sheet.roundLabel) + '</div>' +
           '<div class="ledger-title">捐贈明細</div></div>' +
           '<div class="stamp">' + esc(stampText) + '</div></div>' +
-        '<div class="ledger-notice">' + esc(state.notice) + '</div>' +
+        '<div class="ledger-notice' + noticeClass + '">' + esc(state.notice) + '</div>' +
         '<div class="ledger-body">' +
           '<div class="ledger-col ledger-donors"><h3>捐款人</h3><ol class="pv-donor-list">' + donorItems + '</ol></div>' +
           '<div class="ledger-col ledger-org"><h3>受贈單位</h3>' +
@@ -714,6 +776,37 @@
         '</div>' +
       '</div>' +
       '</div>' +
+    '</div>';
+  }
+
+  function renderPreview(){
+    var sheet = getSheet(ui.sheetId);
+    if (!sheet) { ui.view = 'home'; return renderHome(); }
+    return '<div class="page page-preview">' +
+      '<div class="no-print action-bar">' +
+        '<button class="btn btn-ghost" onclick="App.goEditor(\'' + sheet.id + '\')">← 返回編輯</button>' +
+        '<button class="btn btn-primary" onclick="window.print()">列印 / 存成 PDF</button>' +
+      '</div>' +
+      '<div class="no-print screenshot-bar">' +
+        '<label class="check-label"><input type="checkbox" ' + (ui.screenshotMode ? 'checked' : '') + ' onchange="App.toggleScreenshotMode(this.checked)"><span>截圖模式(隱藏負責人資訊)</span></label>' +
+        '<button class="btn btn-ghost" onclick="App.saveScreenshot()">📷 儲存截圖</button>' +
+      '</div>' +
+      renderLedgerPage(sheet, true) +
+    '</div>';
+  }
+
+  function renderBulkPrint(){
+    var sheets = state.sheets.slice().sort(function(a,b){ return new Date(a.createdAt) - new Date(b.createdAt); });
+    if (!sheets.length) { ui.view = 'home'; return renderHome(); }
+    var pages = sheets.map(function(sheet, idx){
+      return renderLedgerPage(sheet, idx === sheets.length - 1, '第 ' + (idx+1) + ' / ' + sheets.length + ' 筆');
+    }).join('');
+    return '<div class="page page-preview">' +
+      '<div class="no-print action-bar">' +
+        '<button class="btn btn-ghost" onclick="App.goHome()">← 返回列表</button>' +
+        '<button class="btn btn-primary" onclick="window.print()">列印全部 / 存成 PDF</button>' +
+      '</div>' +
+      pages +
     '</div>';
   }
 
@@ -734,12 +827,55 @@
       var s = getSheet(id);
       if (s) upsertOrgLibrary(s.org);
       persistNow();
-      ui.view = 'preview'; ui.sheetId = id;
+      ui.view = 'preview'; ui.sheetId = id; ui.screenshotMode = false;
       render();
+    },
+    goBulkPrint: function(){
+      ui.view = 'bulkPrint';
+      render();
+    },
+    toggleYearCollapse: function(y){
+      ui.collapsedYears[y] = !ui.collapsedYears[y];
+      render();
+    },
+    toggleScreenshotMode: function(value){
+      ui.screenshotMode = value;
+      render();
+    },
+    saveScreenshot: function(){
+      var el = document.querySelector('.page-preview .ledger-sheet');
+      if (!el || typeof html2canvas === 'undefined') {
+        alert('截圖功能載入失敗,請檢查網路連線後重新整理再試一次。');
+        return;
+      }
+      html2canvas(el, { backgroundColor: '#ffffff', scale: 2 }).then(function(canvas){
+        var sheet = getSheet(ui.sheetId);
+        var base = ((sheet && sheet.roundLabel) || '集資表格') + '-' + ((sheet && sheet.org.name) || '');
+        var filename = base.replace(/[\\/:*?"<>|]/g, '').trim() + '.png';
+        canvas.toBlob(function(blob){
+          if (!blob) { alert('截圖失敗,請稍後再試。'); return; }
+          var url = URL.createObjectURL(blob);
+          var isIOS = /iP(hone|od|ad)/.test(navigator.userAgent);
+          if (isIOS) {
+            window.open(url, '_blank');
+          } else {
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          }
+          setTimeout(function(){ URL.revokeObjectURL(url); }, 30000);
+        });
+      }).catch(function(){
+        alert('截圖失敗,請稍後再試。');
+      });
     },
     newSheet: function(){
       var sheet = {
         id: uid('sheet'), createdAt: new Date().toISOString(),
+        year: currentROCYear(),
         roundLabel: '', org: { name:'', phone:'', address:'', capacity:'' },
         donors: [],
         items: [{ id: uid('item'), name:'', unitPrice:0, qty:1 }]
@@ -754,6 +890,7 @@
       if (!src) return;
       var copy = {
         id: uid('sheet'), createdAt: new Date().toISOString(),
+        year: src.year,
         roundLabel: src.roundLabel,
         org: { name: src.org.name, phone: src.org.phone, address: src.org.address, capacity: src.org.capacity },
         donors: src.donors.map(function(d){ return { id: uid('donor'), name: d.name, checked: true }; }),
@@ -772,7 +909,7 @@
     },
     updateSheetField: function(sheetId, field, value){
       var s = getSheet(sheetId); if (!s) return;
-      s[field] = value;
+      s[field] = (field === 'year') ? (value === '' ? null : (Number(value) || null)) : value;
       schedulePersist();
     },
     updateOrgField: function(sheetId, field, value){
@@ -1002,35 +1139,38 @@
   };
   window.App = App;
 
-  function fitLedgerToPage(){
-    var sheetEl = document.getElementById('ledgerSheet');
-    var frameEl = document.getElementById('printFrame');
-    if (!sheetEl || !frameEl) return;
-    sheetEl.style.transform = 'none';
-    var pxPerMm = 96 / 25.4;
-    var pageW = (210 - 24) * pxPerMm;
-    var pageH = (297 - 24) * pxPerMm;
-    var rect = sheetEl.getBoundingClientRect();
-    var scale = Math.min(1, pageW / rect.width, pageH / rect.height);
-    frameEl.style.width = pageW + 'px';
-    frameEl.style.height = pageH + 'px';
-    sheetEl.style.width = rect.width + 'px';
-    sheetEl.style.transformOrigin = 'top left';
-    sheetEl.style.transform = 'scale(' + scale + ')';
+  function fitLedgerElements(){
+    var frames = document.querySelectorAll('.print-frame');
+    frames.forEach(function(frameEl){
+      var sheetEl = frameEl.querySelector('.ledger-sheet');
+      if (!sheetEl) return;
+      sheetEl.style.transform = 'none';
+      var pxPerMm = 96 / 25.4;
+      var pageW = (210 - 24) * pxPerMm;
+      var pageH = (297 - 24) * pxPerMm;
+      var rect = sheetEl.getBoundingClientRect();
+      var scale = Math.min(1, pageW / rect.width, pageH / rect.height);
+      frameEl.style.width = pageW + 'px';
+      frameEl.style.height = pageH + 'px';
+      sheetEl.style.width = rect.width + 'px';
+      sheetEl.style.transformOrigin = 'top left';
+      sheetEl.style.transform = 'scale(' + scale + ')';
+    });
   }
-  function resetLedgerScale(){
-    var sheetEl = document.getElementById('ledgerSheet');
-    var frameEl = document.getElementById('printFrame');
-    if (sheetEl) { sheetEl.style.transform = ''; sheetEl.style.width = ''; }
-    if (frameEl) { frameEl.style.width = ''; frameEl.style.height = ''; }
+  function resetLedgerElements(){
+    document.querySelectorAll('.print-frame').forEach(function(frameEl){
+      var sheetEl = frameEl.querySelector('.ledger-sheet');
+      if (sheetEl) { sheetEl.style.transform = ''; sheetEl.style.width = ''; }
+      frameEl.style.width = ''; frameEl.style.height = '';
+    });
   }
-  window.addEventListener('beforeprint', fitLedgerToPage);
-  window.addEventListener('afterprint', resetLedgerScale);
+  window.addEventListener('beforeprint', fitLedgerElements);
+  window.addEventListener('afterprint', resetLedgerElements);
   if (window.matchMedia) {
     var printQuery = window.matchMedia('print');
     if (printQuery && printQuery.addEventListener) {
       printQuery.addEventListener('change', function(e){
-        if (e.matches) fitLedgerToPage(); else resetLedgerScale();
+        if (e.matches) fitLedgerElements(); else resetLedgerElements();
       });
     }
   }
