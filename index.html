@@ -811,8 +811,9 @@
     '</div>';
   }
 
-  function captureLedgerScreenshot(el, sheet, onDone){
+  function captureLedgerScreenshot(el, sheet, previewWindow, onDone){
     if (!el || typeof html2canvas === 'undefined') {
+      if (previewWindow) { try { previewWindow.close(); } catch(e){} }
       alert('截圖功能載入失敗,請檢查網路連線後重新整理再試一次。');
       if (onDone) onDone();
       return;
@@ -822,11 +823,14 @@
       var filename = base.replace(/[\\/:*?"<>|]/g, '').trim() + '.png';
       canvas.toBlob(function(blob){
         if (onDone) onDone();
-        if (!blob) { alert('截圖失敗,請稍後再試。'); return; }
+        if (!blob) {
+          if (previewWindow) { try { previewWindow.close(); } catch(e){} }
+          alert('截圖失敗,請稍後再試。');
+          return;
+        }
         var url = URL.createObjectURL(blob);
-        var isIOS = /iP(hone|od|ad)/.test(navigator.userAgent);
-        if (isIOS) {
-          window.open(url, '_blank');
+        if (previewWindow) {
+          previewWindow.location.href = url;
         } else {
           var a = document.createElement('a');
           a.href = url;
@@ -837,9 +841,10 @@
         }
         setTimeout(function(){ URL.revokeObjectURL(url); }, 30000);
       });
-    }).catch(function(){
+    }).catch(function(err){
       if (onDone) onDone();
-      alert('截圖失敗,請稍後再試。');
+      if (previewWindow) { try { previewWindow.close(); } catch(e){} }
+      alert('截圖失敗:' + (err && err.message ? err.message : '請稍後再試') + '。');
     });
   }
 
@@ -877,13 +882,17 @@
     },
     saveScreenshot: function(){
       var el = document.querySelector('.page-preview .ledger-sheet');
-      captureLedgerScreenshot(el, getSheet(ui.sheetId));
+      var isIOS = /iP(hone|od|ad)/.test(navigator.userAgent);
+      var previewWindow = isIOS ? window.open('', '_blank') : null;
+      captureLedgerScreenshot(el, getSheet(ui.sheetId), previewWindow);
     },
     quickScreenshot: function(sheetId){
       var sheet = getSheet(sheetId);
       if (!sheet) return;
+      var isIOS = /iP(hone|od|ad)/.test(navigator.userAgent);
+      var previewWindow = isIOS ? window.open('', '_blank') : null;
       var wrapper = document.createElement('div');
-      wrapper.style.position = 'fixed';
+      wrapper.style.position = 'absolute';
       wrapper.style.left = '-9999px';
       wrapper.style.top = '0';
       wrapper.style.width = '680px';
@@ -893,7 +902,7 @@
       ui.screenshotMode = savedMode;
       document.body.appendChild(wrapper);
       var el = wrapper.querySelector('.ledger-sheet');
-      captureLedgerScreenshot(el, sheet, function(){
+      captureLedgerScreenshot(el, sheet, previewWindow, function(){
         document.body.removeChild(wrapper);
       });
     },
