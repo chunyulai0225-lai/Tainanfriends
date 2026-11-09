@@ -291,8 +291,8 @@
   .pv-donor-list{ display:flex; flex-direction:column; gap:6px; }
   .pv-donor-list li{ display:flex; gap:10px; font-size:15px; align-items:baseline; }
   .pv-num{ color:var(--ink-soft); font-variant-numeric:tabular-nums; width:22px; flex-shrink:0; }
-  .org-name{ font-size:18px; font-weight:700; margin:0 0 2px; }
-  .ledger-org p{ margin:2px 0; font-size:14px; color:var(--ink-soft); }
+  .ledger-org .org-name{ font-size:20px; font-weight:700; margin:0 0 2px; }
+  .ledger-org p{ margin:2px 0; font-size:16px; color:var(--ink-soft); }
   .pv-table{ width:100%; border-collapse:collapse; margin-top:10px; font-size:14px; }
   .pv-table th, .pv-table td{ padding:6px 4px; border-bottom:1px solid var(--paper-line); text-align:left; }
   .pv-table .num{ text-align:right; font-variant-numeric:tabular-nums; }
@@ -303,6 +303,7 @@
   .pv-total strong{ font-size:20px; font-variant-numeric:tabular-nums; }
 
   .no-print.action-bar{ position:static; border-top:none; }
+  .bulk-scope-label{ flex:1; align-self:center; font-size:14px; color:var(--ink-soft); }
 
   .print-frame{ }
 
@@ -340,7 +341,7 @@
   var persistTimer = null;
 
   var state = { donorLibrary: [], donorGroups: [], orgLibrary: [], sheets: [] };
-  var ui = { view: 'home', sheetId: null, donorFilter: '', editingOrgId: null, collapsedYears: {}, collapsedRounds: {}, screenshotMode: false };
+  var ui = { view: 'home', sheetId: null, donorFilter: '', editingOrgId: null, collapsedYears: {}, collapsedRounds: {}, screenshotMode: false, bulkFilter: null };
 
   function uid(prefix){
     return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8);
@@ -568,6 +569,7 @@
           '<span class="round-label">' + (r === '未分類' ? '未分類次數' : '第 ' + esc(r) + ' 次') + '</span>' +
           '<span class="round-count">' + list.length + ' 筆</span>' +
         '</button>' +
+        '<button type="button" class="btn btn-ghost round-dup-btn" onclick="App.goBulkPrint(\'' + yearKey + '\',\'' + r + '\')">整批列印</button>' +
         '<button type="button" class="btn btn-ghost round-dup-btn" onclick="App.duplicateRound(\'' + yearKey + '\',\'' + r + '\')">複製整批</button>' +
         '<button type="button" class="btn btn-danger round-dup-btn" onclick="App.deleteRound(\'' + yearKey + '\',\'' + r + '\')">整批刪除</button>' +
       '</div>' +
@@ -620,7 +622,7 @@
     return '<div class="page">' +
       '<header class="topbar"><h1>朋友會集資帳本</h1>' +
       '<div class="topbar-actions">' +
-        (sheets.length ? '<button class="link-btn" onclick="App.goBulkPrint()">整批列印</button>' : '') +
+        (sheets.length ? '<button class="link-btn" onclick="App.goBulkPrint()">整批列印(全部)</button>' : '') +
         '<button class="link-btn" onclick="App.goManage()">管理常用名單</button>' +
       '</div></header>' +
       '<div class="sync-row">' + syncBadgeHtml() + '</div>' +
@@ -867,15 +869,24 @@
   }
 
   function renderBulkPrint(){
-    var sheets = state.sheets.slice().sort(function(a,b){ return new Date(a.createdAt) - new Date(b.createdAt); });
+    var filter = ui.bulkFilter;
+    var sheets = filter
+      ? getRoundMatches(filter.yearKey, filter.round)
+      : state.sheets.slice();
+    sheets = sheets.sort(function(a,b){ return new Date(a.createdAt) - new Date(b.createdAt); });
     if (!sheets.length) { ui.view = 'home'; return renderHome(); }
+    var scopeLabel = filter
+      ? (filter.yearKey === '未分類' ? '未分類年度' : esc(filter.yearKey) + ' 年度') + '・' +
+        (filter.round === '未分類' ? '未分類次數' : '第 ' + esc(filter.round) + ' 次')
+      : '全部表格';
     var pages = sheets.map(function(sheet, idx){
       return renderLedgerPage(sheet, idx === sheets.length - 1, '第 ' + (idx+1) + ' / ' + sheets.length + ' 筆');
     }).join('');
     return '<div class="page page-preview">' +
       '<div class="no-print action-bar">' +
         '<button class="btn btn-ghost" onclick="App.goHome()">← 返回列表</button>' +
-        '<button class="btn btn-primary" onclick="window.print()">列印全部 / 存成 PDF</button>' +
+        '<span class="bulk-scope-label">列印範圍：' + scopeLabel + '（' + sheets.length + ' 筆）</span>' +
+        '<button class="btn btn-primary" onclick="window.print()">列印 / 存成 PDF</button>' +
       '</div>' +
       pages +
     '</div>';
@@ -938,7 +949,8 @@
       ui.view = 'preview'; ui.sheetId = id; ui.screenshotMode = false;
       render();
     },
-    goBulkPrint: function(){
+    goBulkPrint: function(yearKey, round){
+      ui.bulkFilter = (arguments.length >= 2) ? { yearKey: yearKey, round: round } : null;
       ui.view = 'bulkPrint';
       render();
     },
