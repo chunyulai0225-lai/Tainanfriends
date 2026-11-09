@@ -370,6 +370,10 @@
     return checked + ' / ' + sheet.donors.length;
   }
   function getSheet(id){ return state.sheets.find(function(s){ return s.id === id; }); }
+  function confirmDelete(msg){
+    if (!confirm(msg)) return false;
+    return confirm('再次確認:真的要刪除嗎?此動作無法復原。');
+  }
   function getRoundMatches(yearKey, round){
     var yearVal = (yearKey === '未分類') ? null : Number(yearKey);
     var roundVal = (round === '未分類') ? null : Number(round);
@@ -1047,14 +1051,14 @@
       var matches = getRoundMatches(yearKey, round);
       if (!matches.length) return;
       var label = (round === '未分類') ? '未分類次數' : ('第 ' + round + ' 次');
-      if (!confirm('確定要刪除' + label + '的全部 ' + matches.length + ' 張表格嗎？刪除後無法復原。')) return;
+      if (!confirmDelete('確定要刪除' + label + '的全部 ' + matches.length + ' 張表格嗎？刪除後無法復原。')) return;
       var ids = matches.map(function(s){ return s.id; });
       state.sheets = state.sheets.filter(function(s){ return ids.indexOf(s.id) === -1; });
       schedulePersist();
       render();
     },
     deleteSheet: function(id){
-      if (!confirm('確定要刪除這張表格嗎？刪除後無法復原。')) return;
+      if (!confirmDelete('確定要刪除這張表格嗎？刪除後無法復原。')) return;
       state.sheets = state.sheets.filter(function(s){ return s.id !== id; });
       schedulePersist();
       render();
@@ -1144,7 +1148,7 @@
       schedulePersist();
     },
     removeLibDonor: function(id){
-      if (!confirm('確定要刪除這位常用捐款人嗎？')) return;
+      if (!confirmDelete('確定要刪除這位常用捐款人嗎？')) return;
       state.donorLibrary = state.donorLibrary.filter(function(d){ return d.id !== id; });
       schedulePersist();
       render();
@@ -1208,7 +1212,7 @@
       render();
     },
     removeGroup: function(id){
-      if (!confirm('確定要刪除這組固定名單嗎？刪除後無法復原。')) return;
+      if (!confirmDelete('確定要刪除這組固定名單嗎？刪除後無法復原。')) return;
       state.donorGroups = state.donorGroups.filter(function(g){ return g.id !== id; });
       schedulePersist();
       render();
@@ -1267,7 +1271,7 @@
       render();
     },
     removeLibOrg: function(id){
-      if (!confirm('確定要刪除這個常用受贈單位嗎？刪除後無法復原。')) return;
+      if (!confirmDelete('確定要刪除這個常用受贈單位嗎？刪除後無法復原。')) return;
       state.orgLibrary = state.orgLibrary.filter(function(o){ return o.id !== id; });
       if (ui.editingOrgId === id) ui.editingOrgId = null;
       schedulePersist();
