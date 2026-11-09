@@ -252,13 +252,15 @@
     display:flex; flex-direction:column; gap:10px;
     padding:10px 0 10px 14px; border-left:3px solid var(--paper-line); margin-left:4px;
   }
+  .round-header-row{ display:flex; align-items:center; gap:8px; }
   .round-header{
-    display:flex; align-items:center; gap:8px; width:100%; text-align:left;
+    display:flex; align-items:center; gap:8px; flex:1; min-width:0; text-align:left;
     background:none; border:none; padding:2px 4px; cursor:pointer; font:inherit; color:inherit;
   }
   .round-toggle{ font-size:12px; color:var(--ink-soft); width:12px; flex-shrink:0; }
   .round-label{ font-weight:700; font-size:16px; }
   .round-count{ margin-left:auto; font-size:13px; color:var(--ink-soft); white-space:nowrap; }
+  .round-dup-btn{ padding:8px 12px; font-size:13px; min-height:36px; white-space:nowrap; flex-shrink:0; }
   .round-total{
     font-size:30px; font-weight:700; color:var(--stamp); font-variant-numeric:tabular-nums;
     padding:0 4px;
@@ -547,11 +549,14 @@
     var collapsed = !!ui.collapsedRounds[roundKey];
     var cards = list.map(renderStubCard).join('');
     return '<div class="round-section">' +
-      '<button type="button" class="round-header" onclick="App.toggleRoundCollapse(\'' + roundKey + '\')">' +
-        '<span class="round-toggle">' + (collapsed ? '▸' : '▾') + '</span>' +
-        '<span class="round-label">' + (r === '未分類' ? '未分類次數' : '第 ' + esc(r) + ' 次') + '</span>' +
-        '<span class="round-count">' + list.length + ' 筆</span>' +
-      '</button>' +
+      '<div class="round-header-row">' +
+        '<button type="button" class="round-header" onclick="App.toggleRoundCollapse(\'' + roundKey + '\')">' +
+          '<span class="round-toggle">' + (collapsed ? '▸' : '▾') + '</span>' +
+          '<span class="round-label">' + (r === '未分類' ? '未分類次數' : '第 ' + esc(r) + ' 次') + '</span>' +
+          '<span class="round-count">' + list.length + ' 筆</span>' +
+        '</button>' +
+        '<button type="button" class="btn btn-ghost round-dup-btn" onclick="App.duplicateRound(\'' + yearKey + '\',\'' + r + '\')">複製整批</button>' +
+      '</div>' +
       '<div class="round-total">' + fmtMoney(total) + '</div>' +
       (collapsed ? '' : '<div class="stub-list">' + cards + '</div>') +
     '</div>';
@@ -998,6 +1003,40 @@
       schedulePersist();
       ui.view = 'editor'; ui.sheetId = copy.id;
       render();
+    },
+    duplicateRound: function(yearKey, round){
+      var yearVal = (yearKey === '未分類') ? null : Number(yearKey);
+      var roundVal = (round === '未分類') ? null : Number(round);
+      var matches = state.sheets.filter(function(s){
+        var sy = (s.year != null) ? s.year : null;
+        var sr = (s.round != null) ? s.round : null;
+        return sy === yearVal && sr === roundVal;
+      });
+      if (!matches.length) return;
+      var defaultNext = (roundVal != null) ? String(roundVal + 1) : '';
+      var input = prompt('要把這 ' + matches.length + ' 張表格,複製成第幾次集資?(受贈單位、捐款人名單會一併複製,物資明細請重新填寫)', defaultNext);
+      if (input === null) return;
+      var trimmed = input.trim();
+      var newRound = trimmed === '' ? null : (Number(trimmed) || null);
+      var labelPattern = /第\s*\d+\s*次/;
+      matches.forEach(function(src){
+        var newLabel = src.roundLabel;
+        if (newRound != null && labelPattern.test(newLabel)) {
+          newLabel = newLabel.replace(labelPattern, '第' + newRound + '次');
+        }
+        var copy = {
+          id: uid('sheet'), createdAt: new Date().toISOString(),
+          year: src.year, round: newRound,
+          roundLabel: newLabel,
+          org: { name: src.org.name, phone: src.org.phone, address: src.org.address, capacity: src.org.capacity },
+          donors: src.donors.map(function(d){ return { id: uid('donor'), name: d.name, checked: true }; }),
+          items: [{ id: uid('item'), name:'', unitPrice:0, qty:1 }]
+        };
+        state.sheets.push(copy);
+      });
+      schedulePersist();
+      render();
+      alert('已複製 ' + matches.length + ' 張表格' + (newRound != null ? ('到第 ' + newRound + ' 次') : '') + ',請到各張表格確認物資明細與金額。');
     },
     deleteSheet: function(id){
       if (!confirm('確定要刪除這張表格嗎？刪除後無法復原。')) return;
