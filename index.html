@@ -248,6 +248,22 @@
   .year-label{ font-weight:700; font-size:17px; }
   .year-meta{ margin-left:auto; font-size:13px; color:var(--ink-soft); white-space:nowrap; }
 
+  .round-section{
+    display:flex; flex-direction:column; gap:10px;
+    padding:10px 0 10px 14px; border-left:3px solid var(--paper-line); margin-left:4px;
+  }
+  .round-header{
+    display:flex; align-items:center; gap:8px; width:100%; text-align:left;
+    background:none; border:none; padding:2px 4px; cursor:pointer; font:inherit; color:inherit;
+  }
+  .round-toggle{ font-size:12px; color:var(--ink-soft); width:12px; flex-shrink:0; }
+  .round-label{ font-weight:700; font-size:16px; }
+  .round-count{ margin-left:auto; font-size:13px; color:var(--ink-soft); white-space:nowrap; }
+  .round-total{
+    font-size:30px; font-weight:700; color:var(--stamp); font-variant-numeric:tabular-nums;
+    padding:0 4px;
+  }
+
   .bulk-page-label{ font-size:13px; color:var(--ink-soft); margin:0 0 6px 4px; }
   .bulk-page + .bulk-page{ margin-top:28px; padding-top:20px; border-top:1px dashed var(--paper-line); }
 
@@ -322,7 +338,7 @@
   var persistTimer = null;
 
   var state = { donorLibrary: [], donorGroups: [], orgLibrary: [], sheets: [] };
-  var ui = { view: 'home', sheetId: null, donorFilter: '', editingOrgId: null, collapsedYears: {}, screenshotMode: false };
+  var ui = { view: 'home', sheetId: null, donorFilter: '', editingOrgId: null, collapsedYears: {}, collapsedRounds: {}, screenshotMode: false };
 
   function uid(prefix){
     return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8);
@@ -483,6 +499,10 @@
         var d = new Date(s.createdAt);
         s.year = isNaN(d.getTime()) ? currentROCYear() : (d.getFullYear() - 1911);
       }
+      if (s.round === undefined || s.round === null) {
+        var m = /第\s*(\d+)\s*次/.exec(s.roundLabel || '');
+        s.round = m ? Number(m[1]) : null;
+      }
     });
 
     render();
@@ -521,6 +541,22 @@
     '</article>';
   }
 
+  function renderRoundSection(yearKey, r, list){
+    var total = list.reduce(function(sum,s){ return sum + sheetTotal(s); }, 0);
+    var roundKey = yearKey + '|' + r;
+    var collapsed = !!ui.collapsedRounds[roundKey];
+    var cards = list.map(renderStubCard).join('');
+    return '<div class="round-section">' +
+      '<button type="button" class="round-header" onclick="App.toggleRoundCollapse(\'' + roundKey + '\')">' +
+        '<span class="round-toggle">' + (collapsed ? '▸' : '▾') + '</span>' +
+        '<span class="round-label">' + (r === '未分類' ? '未分類次數' : '第 ' + esc(r) + ' 次') + '</span>' +
+        '<span class="round-count">' + list.length + ' 筆</span>' +
+      '</button>' +
+      '<div class="round-total">' + fmtMoney(total) + '</div>' +
+      (collapsed ? '' : '<div class="stub-list">' + cards + '</div>') +
+    '</div>';
+  }
+
   function renderHome(){
     var sheets = state.sheets.slice().sort(function(a,b){ return new Date(b.createdAt) - new Date(a.createdAt); });
     var groups = {};
@@ -538,14 +574,27 @@
       var list = groups[y];
       var total = list.reduce(function(sum,s){ return sum + sheetTotal(s); }, 0);
       var collapsed = !!ui.collapsedYears[y];
-      var cards = list.map(renderStubCard).join('');
+
+      var roundGroups = {};
+      list.forEach(function(s){
+        var r = (s.round != null) ? s.round : '未分類';
+        if (!roundGroups[r]) roundGroups[r] = [];
+        roundGroups[r].push(s);
+      });
+      var rounds = Object.keys(roundGroups).sort(function(a,b){
+        if (a === '未分類') return 1;
+        if (b === '未分類') return -1;
+        return Number(b) - Number(a);
+      });
+      var roundSections = rounds.map(function(r){ return renderRoundSection(y, r, roundGroups[r]); }).join('');
+
       return '<section class="year-section">' +
         '<button type="button" class="year-header" onclick="App.toggleYearCollapse(\'' + y + '\')">' +
           '<span class="year-toggle">' + (collapsed ? '▸' : '▾') + '</span>' +
           '<span class="year-label">' + (y === '未分類' ? '未分類' : esc(y) + ' 年度') + '</span>' +
           '<span class="year-meta">' + list.length + ' 筆・' + fmtMoney(total) + '</span>' +
         '</button>' +
-        (collapsed ? '' : '<div class="stub-list">' + cards + '</div>') +
+        (collapsed ? '' : roundSections) +
       '</section>';
     }).join('') || '<p class="empty">目前還沒有任何表格,點上面按鈕開始新增。</p>';
 
@@ -706,6 +755,8 @@
       (!offlineMode && syncError ? '<div class="banner banner-warn">目前連不上雲端,已先存在這台裝置,恢復連線後會自動再同步。</div>' : '') +
       '<section class="card"><label class="field"><span>本次集資名稱</span>' +
         '<input value="' + esc(sheet.roundLabel) + '" placeholder="例如：115年6月份 第36次集資" oninput="App.updateSheetField(\'' + sheet.id + '\',\'roundLabel\',this.value)"></label>' +
+        '<label class="field"><span>第幾次集資(用於首頁分組)</span>' +
+          '<input type="number" inputmode="numeric" placeholder="例如：36" value="' + (sheet.round != null ? sheet.round : '') + '" oninput="App.updateSheetField(\'' + sheet.id + '\',\'round\',this.value)"></label>' +
         '<label class="field"><span>年度(民國年,用於首頁分類)</span>' +
           '<input type="number" inputmode="numeric" value="' + (sheet.year != null ? sheet.year : '') + '" oninput="App.updateSheetField(\'' + sheet.id + '\',\'year\',this.value)"></label>' +
       '</section>' +
@@ -876,6 +927,10 @@
       ui.collapsedYears[y] = !ui.collapsedYears[y];
       render();
     },
+    toggleRoundCollapse: function(key){
+      ui.collapsedRounds[key] = !ui.collapsedRounds[key];
+      render();
+    },
     toggleScreenshotMode: function(value){
       ui.screenshotMode = value;
       render();
@@ -918,7 +973,7 @@
     newSheet: function(){
       var sheet = {
         id: uid('sheet'), createdAt: new Date().toISOString(),
-        year: currentROCYear(),
+        year: currentROCYear(), round: null,
         roundLabel: '', org: { name:'', phone:'', address:'', capacity:'' },
         donors: [],
         items: [{ id: uid('item'), name:'', unitPrice:0, qty:1 }]
@@ -933,7 +988,7 @@
       if (!src) return;
       var copy = {
         id: uid('sheet'), createdAt: new Date().toISOString(),
-        year: src.year,
+        year: src.year, round: src.round,
         roundLabel: src.roundLabel,
         org: { name: src.org.name, phone: src.org.phone, address: src.org.address, capacity: src.org.capacity },
         donors: src.donors.map(function(d){ return { id: uid('donor'), name: d.name, checked: true }; }),
@@ -952,7 +1007,7 @@
     },
     updateSheetField: function(sheetId, field, value){
       var s = getSheet(sheetId); if (!s) return;
-      s[field] = (field === 'year') ? (value === '' ? null : (Number(value) || null)) : value;
+      s[field] = (field === 'year' || field === 'round') ? (value === '' ? null : (Number(value) || null)) : value;
       schedulePersist();
     },
     updateOrgField: function(sheetId, field, value){
