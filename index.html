@@ -252,7 +252,7 @@
     display:flex; flex-direction:column; gap:10px;
     padding:10px 0 10px 14px; border-left:3px solid var(--paper-line); margin-left:4px;
   }
-  .round-header-row{ display:flex; align-items:center; gap:8px; }
+  .round-header-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   .round-header{
     display:flex; align-items:center; gap:8px; flex:1; min-width:0; text-align:left;
     background:none; border:none; padding:2px 4px; cursor:pointer; font:inherit; color:inherit;
@@ -370,6 +370,15 @@
     return checked + ' / ' + sheet.donors.length;
   }
   function getSheet(id){ return state.sheets.find(function(s){ return s.id === id; }); }
+  function getRoundMatches(yearKey, round){
+    var yearVal = (yearKey === '未分類') ? null : Number(yearKey);
+    var roundVal = (round === '未分類') ? null : Number(round);
+    return state.sheets.filter(function(s){
+      var sy = (s.year != null) ? s.year : null;
+      var sr = (s.round != null) ? s.round : null;
+      return sy === yearVal && sr === roundVal;
+    });
+  }
 
   function isHeaderLike(s){
     return /^(姓名|name|名字|捐款人|捐款人名單|編號|序號|no\.?|項次)$/i.test(s);
@@ -556,6 +565,7 @@
           '<span class="round-count">' + list.length + ' 筆</span>' +
         '</button>' +
         '<button type="button" class="btn btn-ghost round-dup-btn" onclick="App.duplicateRound(\'' + yearKey + '\',\'' + r + '\')">複製整批</button>' +
+        '<button type="button" class="btn btn-danger round-dup-btn" onclick="App.deleteRound(\'' + yearKey + '\',\'' + r + '\')">整批刪除</button>' +
       '</div>' +
       '<div class="round-total">' + fmtMoney(total) + '</div>' +
       (collapsed ? '' : '<div class="stub-list">' + cards + '</div>') +
@@ -1005,14 +1015,9 @@
       render();
     },
     duplicateRound: function(yearKey, round){
-      var yearVal = (yearKey === '未分類') ? null : Number(yearKey);
-      var roundVal = (round === '未分類') ? null : Number(round);
-      var matches = state.sheets.filter(function(s){
-        var sy = (s.year != null) ? s.year : null;
-        var sr = (s.round != null) ? s.round : null;
-        return sy === yearVal && sr === roundVal;
-      });
+      var matches = getRoundMatches(yearKey, round);
       if (!matches.length) return;
+      var roundVal = (round === '未分類') ? null : Number(round);
       var defaultNext = (roundVal != null) ? String(roundVal + 1) : '';
       var input = prompt('要把這 ' + matches.length + ' 張表格,複製成第幾次集資?(受贈單位、捐款人名單會一併複製,物資明細請重新填寫)', defaultNext);
       if (input === null) return;
@@ -1037,6 +1042,16 @@
       schedulePersist();
       render();
       alert('已複製 ' + matches.length + ' 張表格' + (newRound != null ? ('到第 ' + newRound + ' 次') : '') + ',請到各張表格確認物資明細與金額。');
+    },
+    deleteRound: function(yearKey, round){
+      var matches = getRoundMatches(yearKey, round);
+      if (!matches.length) return;
+      var label = (round === '未分類') ? '未分類次數' : ('第 ' + round + ' 次');
+      if (!confirm('確定要刪除' + label + '的全部 ' + matches.length + ' 張表格嗎？刪除後無法復原。')) return;
+      var ids = matches.map(function(s){ return s.id; });
+      state.sheets = state.sheets.filter(function(s){ return ids.indexOf(s.id) === -1; });
+      schedulePersist();
+      render();
     },
     deleteSheet: function(id){
       if (!confirm('確定要刪除這張表格嗎？刪除後無法復原。')) return;
