@@ -304,6 +304,7 @@
 
   .no-print.action-bar{ position:static; border-top:none; }
   .bulk-scope-label{ flex:1; align-self:center; font-size:14px; color:var(--ink-soft); }
+  .trash-hint{ font-size:14px; color:var(--ink-soft); margin:2px 0 0; }
 
   .print-frame{ }
 
@@ -340,7 +341,7 @@
   var saveState = 'saved';
   var persistTimer = null;
 
-  var state = { donorLibrary: [], donorGroups: [], orgLibrary: [], sheets: [] };
+  var state = { donorLibrary: [], donorGroups: [], orgLibrary: [], sheets: [], trash: [] };
   var ui = { view: 'home', sheetId: null, donorFilter: '', editingOrgId: null, collapsedYears: {}, collapsedRounds: {}, screenshotMode: false, bulkFilter: null };
 
   function uid(prefix){
@@ -352,8 +353,8 @@
     });
   }
   function fmtMoney(n){
-    n = Number(n) || 0;
-    return 'NT$ ' + n.toLocaleString('zh-Hant-TW');
+    n = Math.round(Number(n) || 0);
+    return 'NT$ ' + n.toLocaleString('zh-Hant-TW', { maximumFractionDigits: 0 });
   }
   function fmtDate(iso){
     var d = new Date(iso);
@@ -508,6 +509,7 @@
     if (!state.donorGroups) state.donorGroups = [];
     if (!state.orgLibrary) state.orgLibrary = [];
     if (!state.sheets) state.sheets = [];
+    if (!state.trash) state.trash = [];
     if (state.notice === undefined) state.notice = DEFAULT_NOTICE;
 
     state.sheets.forEach(function(s){
@@ -531,6 +533,7 @@
     else if (ui.view === 'editor') html = renderEditor();
     else if (ui.view === 'preview') html = renderPreview();
     else if (ui.view === 'bulkPrint') html = renderBulkPrint();
+    else if (ui.view === 'trash') html = renderTrash();
     else html = renderHome();
     app.innerHTML = html;
   }
@@ -624,6 +627,7 @@
       '<div class="topbar-actions">' +
         (sheets.length ? '<button class="link-btn" onclick="App.goBulkPrint()">整批列印(全部)</button>' : '') +
         '<button class="link-btn" onclick="App.goManage()">管理常用名單</button>' +
+        '<button class="link-btn" onclick="App.goTrash()">垃圾桶' + (state.trash.length ? '(' + state.trash.length + ')' : '') + '</button>' +
       '</div></header>' +
       '<div class="sync-row">' + syncBadgeHtml() + '</div>' +
       (offlineMode ? '<div class="banner banner-warn">尚未設定雲端同步,目前資料只存在這台裝置。</div>' : '') +
@@ -892,6 +896,38 @@
     '</div>';
   }
 
+  function renderTrashCard(s){
+    return '<article class="stub">' +
+      '<div class="stub-row">' +
+        '<div>' +
+          '<div class="stub-round">' + esc(s.roundLabel || '未命名集資') + '</div>' +
+          '<h3 class="stub-org">' + esc(s.org.name || '(尚未填寫受贈單位)') + '</h3>' +
+        '</div>' +
+        '<div class="stub-total">' + fmtMoney(sheetTotal(s)) + '</div>' +
+      '</div>' +
+      '<div class="stub-meta">' +
+        '<span>刪除於 ' + fmtDate(s.deletedAt) + '</span>' +
+        '<span>捐款人 ' + sheetDonorCount(s) + '</span>' +
+      '</div>' +
+      '<div class="stub-actions">' +
+        '<button class="btn btn-primary" onclick="App.restoreSheet(\'' + s.id + '\')">↺ 復原</button>' +
+        '<button class="btn btn-danger" onclick="App.purgeTrashItem(\'' + s.id + '\')">永久刪除</button>' +
+      '</div>' +
+    '</article>';
+  }
+
+  function renderTrash(){
+    var items = state.trash.slice().sort(function(a,b){ return new Date(b.deletedAt) - new Date(a.deletedAt); });
+    var cards = items.map(renderTrashCard).join('') || '<p class="empty">垃圾桶是空的。</p>';
+    return '<div class="page">' +
+      '<header class="topbar"><button class="link-btn" onclick="App.goHome()">← 返回列表</button><h1>垃圾桶</h1>' +
+        (items.length ? '<button class="link-btn" onclick="App.purgeAllTrash()">清空垃圾桶</button>' : '<span></span>') +
+      '</header>' +
+      '<p class="trash-hint">刪除的表格會先放在這裡,可以隨時復原;永久刪除後才會真的消失。</p>' +
+      '<div class="stub-list">' + cards + '</div>' +
+    '</div>';
+  }
+
   function captureLedgerScreenshot(el, sheet, previewWindow, onDone){
     if (!el || typeof html2canvas === 'undefined') {
       if (previewWindow) { try { previewWindow.close(); } catch(e){} }
@@ -1063,15 +1099,47 @@
       var matches = getRoundMatches(yearKey, round);
       if (!matches.length) return;
       var label = (round === '未分類') ? '未分類次數' : ('第 ' + round + ' 次');
-      if (!confirmDelete('確定要刪除' + label + '的全部 ' + matches.length + ' 張表格嗎？刪除後無法復原。')) return;
+      if (!confirm('確定要刪除' + label + '的全部 ' + matches.length + ' 張表格嗎？(會先移到垃圾桶,還可以復原)')) return;
       var ids = matches.map(function(s){ return s.id; });
+      var now = new Date().toISOString();
+      matches.forEach(function(s){ s.deletedAt = now; state.trash.push(s); });
       state.sheets = state.sheets.filter(function(s){ return ids.indexOf(s.id) === -1; });
       schedulePersist();
       render();
     },
     deleteSheet: function(id){
-      if (!confirmDelete('確定要刪除這張表格嗎？刪除後無法復原。')) return;
-      state.sheets = state.sheets.filter(function(s){ return s.id !== id; });
+      var s = getSheet(id);
+      if (!s) return;
+      if (!confirm('確定要刪除這張表格嗎？(會先移到垃圾桶,還可以復原)')) return;
+      s.deletedAt = new Date().toISOString();
+      state.trash.push(s);
+      state.sheets = state.sheets.filter(function(x){ return x.id !== id; });
+      schedulePersist();
+      render();
+    },
+    goTrash: function(){ ui.view = 'trash'; render(); },
+    restoreSheet: function(id){
+      var idx = state.trash.findIndex(function(s){ return s.id === id; });
+      if (idx === -1) return;
+      var s = state.trash[idx];
+      delete s.deletedAt;
+      state.trash.splice(idx, 1);
+      state.sheets.push(s);
+      schedulePersist();
+      render();
+    },
+    purgeTrashItem: function(id){
+      var idx = state.trash.findIndex(function(s){ return s.id === id; });
+      if (idx === -1) return;
+      if (!confirmDelete('確定要永久刪除這張表格嗎？永久刪除後無法復原。')) return;
+      state.trash.splice(idx, 1);
+      schedulePersist();
+      render();
+    },
+    purgeAllTrash: function(){
+      if (!state.trash.length) return;
+      if (!confirmDelete('確定要清空垃圾桶嗎？清空後垃圾桶內的 ' + state.trash.length + ' 張表格都無法復原。')) return;
+      state.trash = [];
       schedulePersist();
       render();
     },
