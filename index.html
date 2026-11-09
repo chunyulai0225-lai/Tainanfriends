@@ -353,6 +353,10 @@
     });
   }
   function fmtMoney(n){
+    n = Number(n) || 0;
+    return 'NT$ ' + n.toLocaleString('zh-Hant-TW');
+  }
+  function fmtMoneyRound(n){
     n = Math.round(Number(n) || 0);
     return 'NT$ ' + n.toLocaleString('zh-Hant-TW', { maximumFractionDigits: 0 });
   }
@@ -576,7 +580,7 @@
         '<button type="button" class="btn btn-ghost round-dup-btn" onclick="App.duplicateRound(\'' + yearKey + '\',\'' + r + '\')">複製整批</button>' +
         '<button type="button" class="btn btn-danger round-dup-btn" onclick="App.deleteRound(\'' + yearKey + '\',\'' + r + '\')">整批刪除</button>' +
       '</div>' +
-      '<div class="round-total">' + fmtMoney(total) + '</div>' +
+      '<div class="round-total">' + fmtMoneyRound(total) + '</div>' +
       (collapsed ? '' : '<div class="stub-list">' + cards + '</div>') +
     '</div>';
   }
@@ -616,7 +620,7 @@
         '<button type="button" class="year-header" onclick="App.toggleYearCollapse(\'' + y + '\')">' +
           '<span class="year-toggle">' + (collapsed ? '▸' : '▾') + '</span>' +
           '<span class="year-label">' + (y === '未分類' ? '未分類' : esc(y) + ' 年度') + '</span>' +
-          '<span class="year-meta">' + list.length + ' 筆・' + fmtMoney(total) + '</span>' +
+          '<span class="year-meta">' + list.length + ' 筆・' + fmtMoneyRound(total) + '</span>' +
         '</button>' +
         (collapsed ? '' : roundSections) +
       '</section>';
