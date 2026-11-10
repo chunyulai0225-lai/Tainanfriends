@@ -394,7 +394,7 @@
   }
 
   function isHeaderLike(s){
-    return /^(姓名|name|名字|捐款人|捐款人名單|編號|序號|no\.?|項次)$/i.test(s);
+    return /^(姓名|name|名字|捐款人|捐款人名單|捐贈人|捐贈人名單|編號|序號|no\.?|項次)$/i.test(s);
   }
   function extractNamesFromSheet(sheet){
     var rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
@@ -556,7 +556,7 @@
       '</div>' +
       '<div class="stub-meta">' +
         '<span>建立於 ' + fmtDate(s.createdAt) + '</span>' +
-        '<span>捐款人 ' + sheetDonorCount(s) + '</span>' +
+        '<span>捐贈人 ' + sheetDonorCount(s) + '</span>' +
       '</div>' +
       '<div class="stub-actions">' +
         '<button class="btn btn-primary" onclick="App.openSheet(\'' + s.id + '\')">開啟</button>' +
@@ -652,7 +652,7 @@
     return filteredDonors.map(function(d){
       return '<li class="lib-row"><span>' + esc(d.name) + '</span>' +
         '<button class="icon-btn" onclick="App.removeLibDonor(\'' + d.id + '\')" aria-label="刪除">✕</button></li>';
-    }).join('') || '<li class="empty">' + (donorFilterVal ? '找不到符合的姓名' : '尚未建立任何常用捐款人') + '</li>';
+    }).join('') || '<li class="empty">' + (donorFilterVal ? '找不到符合的姓名' : '尚未建立任何常用捐贈人') + '</li>';
   }
 
   function renderManage(){
@@ -698,7 +698,7 @@
           '<input name="name" placeholder="輸入姓名 / 家庭 / 團體" required>' +
           '<button class="btn btn-primary" type="submit">加入</button>' +
         '</form>' +
-        (groupChips ? '<div class="chip-row"><span class="chip-label">常用捐款人:</span>' + groupChips + '</div>' : '') +
+        (groupChips ? '<div class="chip-row"><span class="chip-label">常用捐贈人:</span>' + groupChips + '</div>' : '') +
       '</div>';
     }).join('') || '<p class="empty">尚未建立任何固定名單</p>';
 
@@ -719,7 +719,7 @@
           '<button class="btn btn-primary" type="submit">新增名單</button>' +
         '</form>' +
       '</section>' +
-      '<section class="card"><h2>常用捐款人</h2>' +
+      '<section class="card"><h2>常用捐贈人</h2>' +
         '<div class="import-btn-row">' +
           '<input type="file" id="donor-import-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="App.importDonorsFile(this)">' +
           '<button type="button" class="btn btn-ghost" onclick="document.getElementById(\'donor-import-file\').click()">📥 從 Excel 匯入</button>' +
@@ -773,7 +773,7 @@
           ' onchange="App.toggleDonor(\'' + sheet.id + '\',\'' + d.id + '\')"><span>' + esc(d.name) + '</span></label>' +
         '<button class="icon-btn" onclick="App.removeDonorFromSheet(\'' + sheet.id + '\',\'' + d.id + '\')" aria-label="移除">✕</button>' +
       '</li>';
-    }).join('') || '<li class="empty">尚未加入任何捐款人</li>';
+    }).join('') || '<li class="empty">尚未加入任何捐贈人</li>';
 
     var availableLib = availableLibDonors(sheet);
     var showChipFilter = availableLib.length > CHIP_LIMIT;
@@ -819,7 +819,7 @@
         '<label class="field"><span>收容對象 / 備註</span><input value="' + esc(sheet.org.capacity) + '" oninput="App.updateOrgField(\'' + sheet.id + '\',\'capacity\',this.value)"></label>' +
       '</section>' +
       '<div class="editor-cols">' +
-        '<section class="card"><h2>捐款人名單</h2>' +
+        '<section class="card"><h2>捐贈人名單</h2>' +
           (groupOptions ? '<label class="field"><span>套用固定名單</span><select onchange="App.applyDonorGroup(\'' + sheet.id + '\',this.value)"><option value="">— 請選擇 —</option>' + groupOptions + '</select></label>' : '') +
           '<ul class="donor-list">' + donorRows + '</ul>' +
           '<form class="inline-form" onsubmit="App.addDonorNew(event,\'' + sheet.id + '\')">' +
@@ -870,7 +870,7 @@
           '<div class="ledger-title">捐贈明細</div></div>' +
         '<div class="ledger-notice' + noticeClass + '">' + esc(state.notice) + '</div>' +
         '<div class="ledger-body">' +
-          '<div class="ledger-col ledger-donors"><h3>捐款人</h3><ol class="pv-donor-list">' + donorItems + '</ol></div>' +
+          '<div class="ledger-col ledger-donors"><h3>捐贈人</h3><ol class="pv-donor-list">' + donorItems + '</ol></div>' +
           '<div class="ledger-col ledger-org"><h3>受贈單位</h3>' +
             '<p class="org-name">' + esc(sheet.org.name) + '</p>' +
             '<p>' + esc(sheet.org.phone) + '</p>' +
@@ -939,7 +939,7 @@
       '</div>' +
       '<div class="stub-meta">' +
         '<span>刪除於 ' + fmtDate(s.deletedAt) + '</span>' +
-        '<span>捐款人 ' + sheetDonorCount(s) + '</span>' +
+        '<span>捐贈人 ' + sheetDonorCount(s) + '</span>' +
       '</div>' +
       '<div class="stub-actions">' +
         '<button class="btn btn-primary" onclick="App.restoreSheet(\'' + s.id + '\')">↺ 復原</button>' +
@@ -1103,7 +1103,7 @@
       if (!matches.length) return;
       var roundVal = (round === '未分類') ? null : Number(round);
       var defaultNext = (roundVal != null) ? String(roundVal + 1) : '';
-      var input = prompt('要把這 ' + matches.length + ' 張表格,複製成第幾次集資?(受贈單位、捐款人名單會一併複製,物資明細請重新填寫)', defaultNext);
+      var input = prompt('要把這 ' + matches.length + ' 張表格,複製成第幾次集資?(受贈單位、捐贈人名單會一併複製,物資明細請重新填寫)', defaultNext);
       if (input === null) return;
       var trimmed = input.trim();
       var newRound = trimmed === '' ? null : (Number(trimmed) || null);
@@ -1197,7 +1197,7 @@
       var s = getSheet(sheetId); if (!s) return;
       var g = state.donorGroups.find(function(x){ return x.id === groupId; });
       if (!g) return;
-      if (s.donors.length > 0 && !confirm('套用「' + g.name + '」的名單會覆蓋目前表格上的捐款人名單,確定要套用嗎？')) return;
+      if (s.donors.length > 0 && !confirm('套用「' + g.name + '」的名單會覆蓋目前表格上的捐贈人名單,確定要套用嗎？')) return;
       s.donors = g.members.map(function(m){ return { id: uid('donor'), name: m.name, checked:true }; });
       schedulePersist();
       render();
@@ -1260,7 +1260,7 @@
       schedulePersist();
     },
     removeLibDonor: function(id){
-      if (!confirmDelete('確定要刪除這位常用捐款人嗎？')) return;
+      if (!confirmDelete('確定要刪除這位常用捐贈人嗎？')) return;
       state.donorLibrary = state.donorLibrary.filter(function(d){ return d.id !== id; });
       schedulePersist();
       render();
