@@ -293,6 +293,11 @@
   .ledger-col h3{ font-size:15px; color:var(--ink-soft); margin-bottom:8px; font-weight:700; }
   .pv-donor-list{ display:flex; flex-direction:column; gap:6px; }
   .pv-donor-list li{ display:flex; gap:10px; font-size:15px; align-items:baseline; }
+  .pv-donor-list.donor-cols-2{ display:block; column-count:2; column-gap:18px; }
+  .pv-donor-list.donor-cols-3{ display:block; column-count:3; column-gap:16px; }
+  .pv-donor-list.donor-cols-2 li, .pv-donor-list.donor-cols-3 li{
+    break-inside:avoid; -webkit-column-break-inside:avoid; margin-bottom:6px;
+  }
   .pv-num{ color:var(--ink-soft); font-variant-numeric:tabular-nums; width:22px; flex-shrink:0; }
   .ledger-org .org-name{ font-size:20px; font-weight:700; margin:0 0 2px; }
   .ledger-org p{ margin:2px 0; font-size:16px; color:var(--ink-soft); }
@@ -851,6 +856,7 @@
     var donorItems = donors.map(function(d,i){
       return '<li><span class="pv-num">' + (i+1) + '</span>' + esc(d.name) + '</li>';
     }).join('') || '<li class="empty">（無）</li>';
+    var donorColsClass = donors.length > 30 ? ' donor-cols-3' : (donors.length > 14 ? ' donor-cols-2' : '');
 
     var itemRows = sheet.items.map(function(it,i){
       var sub = (Number(it.unitPrice)||0) * (Number(it.qty)||0);
@@ -870,7 +876,7 @@
           '<div class="ledger-title">捐贈明細</div></div>' +
         '<div class="ledger-notice' + noticeClass + '">' + esc(state.notice) + '</div>' +
         '<div class="ledger-body">' +
-          '<div class="ledger-col ledger-donors"><h3>捐贈人</h3><ol class="pv-donor-list">' + donorItems + '</ol></div>' +
+          '<div class="ledger-col ledger-donors"><h3>捐贈人</h3><ol class="pv-donor-list' + donorColsClass + '">' + donorItems + '</ol></div>' +
           '<div class="ledger-col ledger-org"><h3>受贈單位</h3>' +
             '<p class="org-name">' + esc(sheet.org.name) + '</p>' +
             '<p>' + esc(sheet.org.phone) + '</p>' +
