@@ -276,9 +276,10 @@
     background:var(--card); border:1px solid var(--paper-line); border-radius:16px;
     box-shadow:var(--shadow); padding:24px; display:flex; flex-direction:column; gap:18px;
   }
-  .ledger-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:16px; }
+  .ledger-head{ display:flex; flex-direction:column; gap:2px; }
   .ledger-round{ font-size:13px; color:var(--ink-soft); letter-spacing:.04em; }
   .ledger-title{ font-family:"Noto Serif TC"; font-size:24px; font-weight:700; margin-top:2px; }
+  .ledger-stamp-row{ display:flex; justify-content:center; padding-top:4px; }
   .stamp{
     flex-shrink:0; width:64px; height:64px; border-radius:50%; border:3px solid var(--stamp);
     color:var(--stamp); display:flex; align-items:center; justify-content:center;
@@ -865,9 +866,8 @@
       (label ? '<div class="bulk-page-label no-print">' + esc(label) + '</div>' : '') +
       '<div class="print-frame">' +
       '<div class="ledger-sheet">' +
-        '<div class="ledger-head"><div><div class="ledger-round">' + esc(sheet.roundLabel) + '</div>' +
+        '<div class="ledger-head"><div class="ledger-round">' + esc(sheet.roundLabel) + '</div>' +
           '<div class="ledger-title">捐贈明細</div></div>' +
-          '<div class="stamp">' + esc(stampText) + '</div></div>' +
         '<div class="ledger-notice' + noticeClass + '">' + esc(state.notice) + '</div>' +
         '<div class="ledger-body">' +
           '<div class="ledger-col ledger-donors"><h3>捐款人</h3><ol class="pv-donor-list">' + donorItems + '</ol></div>' +
@@ -882,6 +882,7 @@
             '<div class="pv-total"><span>總計</span><strong>' + fmtMoney(sheetTotal(sheet)) + '</strong></div>' +
           '</div>' +
         '</div>' +
+        '<div class="ledger-stamp-row"><div class="stamp">' + esc(stampText) + '</div></div>' +
       '</div>' +
       '</div>' +
     '</div>';
@@ -1411,7 +1412,16 @@
   };
   window.App = App;
 
+  var savedDocTitle = null;
+  function blankDocTitle(){
+    if (savedDocTitle === null) savedDocTitle = document.title;
+    document.title = ' ';
+  }
+  function restoreDocTitle(){
+    if (savedDocTitle !== null) { document.title = savedDocTitle; savedDocTitle = null; }
+  }
   function fitLedgerElements(){
+    blankDocTitle();
     var frames = document.querySelectorAll('.print-frame');
     frames.forEach(function(frameEl){
       var sheetEl = frameEl.querySelector('.ledger-sheet');
@@ -1435,6 +1445,7 @@
       if (sheetEl) { sheetEl.style.transform = ''; sheetEl.style.width = ''; }
       frameEl.style.width = ''; frameEl.style.height = '';
     });
+    restoreDocTitle();
   }
   window.addEventListener('beforeprint', fitLedgerElements);
   window.addEventListener('afterprint', resetLedgerElements);
