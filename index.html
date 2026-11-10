@@ -643,15 +643,18 @@
     '</div>';
   }
 
-  function renderManage(){
+  function donorLibraryRowsHtml(){
     var donorFilterVal = (ui.donorFilter || '').trim().toLowerCase();
     var filteredDonors = donorFilterVal
       ? state.donorLibrary.filter(function(d){ return d.name.toLowerCase().indexOf(donorFilterVal) !== -1; })
       : state.donorLibrary;
-    var donorRows = filteredDonors.map(function(d){
+    return filteredDonors.map(function(d){
       return '<li class="lib-row"><span>' + esc(d.name) + '</span>' +
         '<button class="icon-btn" onclick="App.removeLibDonor(\'' + d.id + '\')" aria-label="刪除">✕</button></li>';
     }).join('') || '<li class="empty">' + (donorFilterVal ? '找不到符合的姓名' : '尚未建立任何常用捐款人') + '</li>';
+  }
+
+  function renderManage(){
 
     var orgRows = state.orgLibrary.map(function(o){
       if (ui.editingOrgId === o.id) {
@@ -722,7 +725,7 @@
         '</div>' +
         '<p class="empty" style="padding:0">支援 .xlsx / .csv,會自動掃描檔案裡所有工作表(分頁)。不管是「編號+姓名」兩欄的格式(跟原本紙本表格一樣),還是單純一欄姓名,都能自動辨識,同名的人只會加入一次。目前共 ' + state.donorLibrary.length + ' 人。</p>' +
         '<input id="donor-filter-input" class="filter-input" type="text" placeholder="搜尋姓名…" value="' + esc(ui.donorFilter) + '" oninput="App.filterDonors(this.value)">' +
-        '<ul class="lib-list lib-grid">' + donorRows + '</ul>' +
+        '<ul class="lib-list lib-grid" id="donor-rows-list">' + donorLibraryRowsHtml() + '</ul>' +
         '<form class="inline-form" onsubmit="App.addLibDonor(event)">' +
           '<input name="name" placeholder="輸入姓名 / 家庭 / 團體名稱" required>' +
           '<button class="btn btn-primary" type="submit">加入</button>' +
@@ -740,6 +743,25 @@
     '</div>';
   }
 
+  var CHIP_LIMIT = 20;
+  function availableLibDonors(sheet){
+    var existingNames = sheet.donors.map(function(d){ return d.name; });
+    return state.donorLibrary.filter(function(ld){ return existingNames.indexOf(ld.name) === -1; });
+  }
+  function chipResultsHtml(sheet){
+    var availableLib = availableLibDonors(sheet);
+    var chipFilterVal = (ui.chipFilter || '').trim().toLowerCase();
+    var matchedLib = chipFilterVal
+      ? availableLib.filter(function(ld){ return ld.name.toLowerCase().indexOf(chipFilterVal) !== -1; })
+      : availableLib;
+    var shownLib = chipFilterVal ? matchedLib : matchedLib.slice(0, CHIP_LIMIT);
+    var hiddenLibCount = chipFilterVal ? 0 : Math.max(0, matchedLib.length - CHIP_LIMIT);
+    var libChips = shownLib.map(function(ld){
+        return '<button type="button" class="chip" onclick="App.addDonorFromLibrary(\'' + sheet.id + '\',\'' + ld.id + '\')">＋ ' + esc(ld.name) + '</button>';
+      }).join('') || (chipFilterVal ? '<span class="empty">找不到符合的姓名</span>' : '');
+    return libChips + (hiddenLibCount > 0 ? '<span class="chip-more">還有 ' + hiddenLibCount + ' 人,輸入姓名搜尋</span>' : '');
+  }
+
   function renderEditor(){
     var sheet = getSheet(ui.sheetId);
     if (!sheet) { ui.view = 'home'; return renderHome(); }
@@ -752,18 +774,7 @@
       '</li>';
     }).join('') || '<li class="empty">尚未加入任何捐款人</li>';
 
-    var existingNames = sheet.donors.map(function(d){ return d.name; });
-    var availableLib = state.donorLibrary.filter(function(ld){ return existingNames.indexOf(ld.name) === -1; });
-    var chipFilterVal = (ui.chipFilter || '').trim().toLowerCase();
-    var matchedLib = chipFilterVal
-      ? availableLib.filter(function(ld){ return ld.name.toLowerCase().indexOf(chipFilterVal) !== -1; })
-      : availableLib;
-    var CHIP_LIMIT = 20;
-    var shownLib = chipFilterVal ? matchedLib : matchedLib.slice(0, CHIP_LIMIT);
-    var hiddenLibCount = chipFilterVal ? 0 : Math.max(0, matchedLib.length - CHIP_LIMIT);
-    var libChips = shownLib.map(function(ld){
-        return '<button type="button" class="chip" onclick="App.addDonorFromLibrary(\'' + sheet.id + '\',\'' + ld.id + '\')">＋ ' + esc(ld.name) + '</button>';
-      }).join('') || (chipFilterVal ? '<span class="empty">找不到符合的姓名</span>' : '');
+    var availableLib = availableLibDonors(sheet);
     var showChipFilter = availableLib.length > CHIP_LIMIT;
 
     var orgOptions = state.orgLibrary.map(function(o){
@@ -818,9 +829,7 @@
             '<div class="chip-section">' +
               '<span class="chip-label">常用名單:</span>' +
               (showChipFilter ? '<input id="chip-filter-input" class="filter-input" type="text" placeholder="搜尋姓名…" value="' + esc(ui.chipFilter) + '" oninput="App.updateChipFilter(this.value)">' : '') +
-              '<div class="chip-row">' + libChips +
-                (hiddenLibCount > 0 ? '<span class="chip-more">還有 ' + hiddenLibCount + ' 人,輸入姓名搜尋</span>' : '') +
-              '</div>' +
+              '<div class="chip-row" id="chip-results">' + chipResultsHtml(sheet) + '</div>' +
             '</div>'
           ) : '') +
         '</section>' +
@@ -1257,15 +1266,14 @@
     },
     filterDonors: function(value){
       ui.donorFilter = value;
-      render();
-      var el = document.getElementById('donor-filter-input');
-      if (el) { el.focus(); var v = el.value; el.setSelectionRange(v.length, v.length); }
+      var el = document.getElementById('donor-rows-list');
+      if (el) el.innerHTML = donorLibraryRowsHtml();
     },
     updateChipFilter: function(value){
       ui.chipFilter = value;
-      render();
-      var el = document.getElementById('chip-filter-input');
-      if (el) { el.focus(); var v = el.value; el.setSelectionRange(v.length, v.length); }
+      var sheet = getSheet(ui.sheetId);
+      var el = document.getElementById('chip-results');
+      if (sheet && el) el.innerHTML = chipResultsHtml(sheet);
     },
     importDonorsFile: function(inputEl){
       var file = inputEl.files && inputEl.files[0];
