@@ -161,8 +161,10 @@
   }
   .inline-form-org{ align-items:stretch; }
 
+  .chip-section{ display:flex; flex-direction:column; gap:6px; padding-top:4px; }
   .chip-row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding-top:4px; }
   .chip-label{ font-size:13px; color:var(--ink-soft); }
+  .chip-more{ font-size:13px; color:var(--ink-soft); }
   .chip{
     border:1px dashed var(--brand); background:var(--brand-soft); color:var(--brand-strong);
     border-radius:999px; padding:8px 14px; font-size:14px; cursor:pointer;
@@ -342,7 +344,7 @@
   var persistTimer = null;
 
   var state = { donorLibrary: [], donorGroups: [], orgLibrary: [], sheets: [], trash: [] };
-  var ui = { view: 'home', sheetId: null, donorFilter: '', editingOrgId: null, collapsedYears: {}, collapsedRounds: {}, screenshotMode: false, bulkFilter: null };
+  var ui = { view: 'home', sheetId: null, donorFilter: '', chipFilter: '', editingOrgId: null, collapsedYears: {}, collapsedRounds: {}, screenshotMode: false, bulkFilter: null };
 
   function uid(prefix){
     return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8);
@@ -751,10 +753,18 @@
     }).join('') || '<li class="empty">尚未加入任何捐款人</li>';
 
     var existingNames = sheet.donors.map(function(d){ return d.name; });
-    var libChips = state.donorLibrary.filter(function(ld){ return existingNames.indexOf(ld.name) === -1; })
-      .map(function(ld){
+    var availableLib = state.donorLibrary.filter(function(ld){ return existingNames.indexOf(ld.name) === -1; });
+    var chipFilterVal = (ui.chipFilter || '').trim().toLowerCase();
+    var matchedLib = chipFilterVal
+      ? availableLib.filter(function(ld){ return ld.name.toLowerCase().indexOf(chipFilterVal) !== -1; })
+      : availableLib;
+    var CHIP_LIMIT = 20;
+    var shownLib = chipFilterVal ? matchedLib : matchedLib.slice(0, CHIP_LIMIT);
+    var hiddenLibCount = chipFilterVal ? 0 : Math.max(0, matchedLib.length - CHIP_LIMIT);
+    var libChips = shownLib.map(function(ld){
         return '<button type="button" class="chip" onclick="App.addDonorFromLibrary(\'' + sheet.id + '\',\'' + ld.id + '\')">＋ ' + esc(ld.name) + '</button>';
-      }).join('');
+      }).join('') || (chipFilterVal ? '<span class="empty">找不到符合的姓名</span>' : '');
+    var showChipFilter = availableLib.length > CHIP_LIMIT;
 
     var orgOptions = state.orgLibrary.map(function(o){
       return '<option value="' + o.id + '">' + esc(o.name) + '</option>';
@@ -804,7 +814,15 @@
             '<input name="name" placeholder="輸入新的姓名 / 家庭 / 團體" required>' +
             '<button class="btn btn-primary" type="submit">加入</button>' +
           '</form>' +
-          (libChips ? '<div class="chip-row"><span class="chip-label">常用名單:</span>' + libChips + '</div>' : '') +
+          (availableLib.length ? (
+            '<div class="chip-section">' +
+              '<span class="chip-label">常用名單:</span>' +
+              (showChipFilter ? '<input id="chip-filter-input" class="filter-input" type="text" placeholder="搜尋姓名…" value="' + esc(ui.chipFilter) + '" oninput="App.updateChipFilter(this.value)">' : '') +
+              '<div class="chip-row">' + libChips +
+                (hiddenLibCount > 0 ? '<span class="chip-more">還有 ' + hiddenLibCount + ' 人,輸入姓名搜尋</span>' : '') +
+              '</div>' +
+            '</div>'
+          ) : '') +
         '</section>' +
         '<section class="card"><h2>捐贈物資</h2><div class="item-list">' + itemRows + '</div>' +
           '<button class="btn btn-ghost btn-block" onclick="App.addItem(\'' + sheet.id + '\')">＋ 新增物資項目</button>' +
@@ -980,8 +998,8 @@
       render();
     },
     goManage: function(){ ui.view = 'manage'; render(); },
-    openSheet: function(id){ ui.view = 'editor'; ui.sheetId = id; render(); },
-    goEditor: function(id){ ui.view = 'editor'; ui.sheetId = id; render(); },
+    openSheet: function(id){ ui.view = 'editor'; ui.sheetId = id; ui.chipFilter = ''; render(); },
+    goEditor: function(id){ ui.view = 'editor'; ui.sheetId = id; ui.chipFilter = ''; render(); },
     goPreview: function(id){
       var s = getSheet(id);
       if (s) upsertOrgLibrary(s.org);
@@ -1241,6 +1259,12 @@
       ui.donorFilter = value;
       render();
       var el = document.getElementById('donor-filter-input');
+      if (el) { el.focus(); var v = el.value; el.setSelectionRange(v.length, v.length); }
+    },
+    updateChipFilter: function(value){
+      ui.chipFilter = value;
+      render();
+      var el = document.getElementById('chip-filter-input');
       if (el) { el.focus(); var v = el.value; el.setSelectionRange(v.length, v.length); }
     },
     importDonorsFile: function(inputEl){
